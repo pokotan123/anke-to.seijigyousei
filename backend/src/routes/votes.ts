@@ -21,39 +21,43 @@ export function getIO() {
 const router = express.Router();
 
 // 公開API: 投票送信
-router.post('/', async (req, res) => {
+router.post('/', async (req, res): Promise<void> => {
   try {
     // 入力値のサニタイゼーション
     const sanitizedBody = sanitizeInput(req.body);
     const { survey_token, question_id, option_id, answer_text } = sanitizedBody;
-    const sessionId = req.headers['x-session-id'] as string || req.ip;
-    const ipAddress = req.ip || req.socket.remoteAddress || null;
-    const userAgent = req.headers['user-agent'] || null;
+    const sessionId = (req.headers['x-session-id'] as string) || req.ip || 'unknown';
+    const ipAddress = req.ip || req.socket.remoteAddress || undefined;
+    const userAgent = req.headers['user-agent'] || undefined;
 
     if (!survey_token || !question_id) {
-      return res.status(400).json({ error: 'survey_token and question_id are required' });
+      res.status(400).json({ error: 'survey_token and question_id are required' });
+      return;
     }
 
     // アンケート取得
     const survey = await SurveyModel.findByToken(survey_token);
     if (!survey) {
-      return res.status(404).json({ error: 'Survey not found' });
+      res.status(404).json({ error: 'Survey not found' });
+      return;
     }
 
     // 公開状態チェック
     const isPublished = await SurveyModel.isPublished(survey);
     if (!isPublished) {
-      return res.status(403).json({ error: 'Survey is not available' });
+      res.status(403).json({ error: 'Survey is not available' });
+      return;
     }
 
     // 質問取得
     const question = await QuestionModel.findById(question_id);
     if (!question || question.survey_id !== survey.id) {
-      return res.status(404).json({ error: 'Question not found' });
+      res.status(404).json({ error: 'Question not found' });
+      return;
     }
 
     // 重複投票チェック
-    const hasVoted = await VoteModel.hasVoted(survey.id, question_id, sessionId);
+    const hasVoted = await VoteModel.hasVoted(survey.id, question_id, sessionId || 'unknown');
     if (hasVoted) {
       return res.status(400).json({ error: 'You have already voted for this question' });
     }
@@ -61,11 +65,13 @@ router.post('/', async (req, res) => {
     // バリデーション
     if (question.question_type === 'text') {
       if (!answer_text) {
-        return res.status(400).json({ error: 'answer_text is required for text questions' });
+        res.status(400).json({ error: 'answer_text is required for text questions' });
+        return;
       }
     } else {
       if (!option_id) {
-        return res.status(400).json({ error: 'option_id is required for choice questions' });
+        res.status(400).json({ error: 'option_id is required for choice questions' });
+        return;
       }
     }
 
@@ -73,9 +79,9 @@ router.post('/', async (req, res) => {
     const vote = await VoteModel.create({
       survey_id: survey.id,
       question_id,
-      option_id,
-      answer_text,
-      session_id: sessionId,
+      option_id: option_id || undefined,
+      answer_text: answer_text || undefined,
+      session_id: sessionId || 'unknown',
       ip_address: ipAddress,
       user_agent: userAgent,
     });
@@ -104,7 +110,7 @@ router.post('/', async (req, res) => {
 });
 
 // 管理API: 投票データ一覧取得
-router.get('/', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/', authenticateToken, async (req: AuthRequest, res): Promise<void> => {
   try {
     const surveyId = req.query.survey_id as string;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
@@ -115,7 +121,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
     const dateTo = req.query.date_to as string;
 
     if (!surveyId) {
-      return res.status(400).json({ error: 'survey_id is required' });
+      res.status(400).json({ error: 'survey_id is required' });
+      return;
     }
 
     const votes = await VoteModel.findBySurveyIdWithFilters(

@@ -126,7 +126,7 @@ export class SurveyModel {
   static async delete(id: number): Promise<boolean> {
     const query = 'DELETE FROM surveys WHERE id = $1';
     const result = await pool.query(query, [id]);
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   static async regenerateToken(id: number): Promise<Survey | null> {

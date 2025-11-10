@@ -44,7 +44,7 @@ async function seed() {
     await OptionModel.create({ question_id: question1.id, option_text: '使いにくい', order: 4 });
     await OptionModel.create({ question_id: question1.id, option_text: 'とても使いにくい', order: 5 });
 
-    const question2 = await QuestionModel.create({
+    await QuestionModel.create({
       survey_id: survey.id,
       question_text: '改善してほしい点があれば教えてください',
       question_type: 'text',

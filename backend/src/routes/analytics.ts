@@ -2,17 +2,18 @@ import express from 'express';
 import { VoteModel } from '../models/Vote';
 import { SurveyModel } from '../models/Survey';
 import { QuestionModel } from '../models/Question';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 import { redisClient } from '../database/redis';
 
 const router = express.Router();
 
 // 管理API: リアルタイム集計データ取得
-router.get('/realtime', authenticateToken, async (req, res) => {
+router.get('/realtime', authenticateToken, async (req, res): Promise<void> => {
   try {
     const surveyId = req.query.survey_id as string;
     if (!surveyId) {
-      return res.status(400).json({ error: 'survey_id is required' });
+      res.status(400).json({ error: 'survey_id is required' });
+      return;
     }
 
     // キャッシュチェック
@@ -63,7 +64,7 @@ router.get('/realtime', authenticateToken, async (req, res) => {
 });
 
 // 管理API: 集計データ取得（期間指定）
-router.get('/aggregate', authenticateToken, async (req, res) => {
+router.get('/aggregate', authenticateToken, async (req, res): Promise<void> => {
   try {
     const surveyId = req.query.survey_id as string;
     const questionId = req.query.question_id as string;
@@ -110,7 +111,7 @@ router.get('/aggregate', authenticateToken, async (req, res) => {
 });
 
 // 管理API: クロス集計データ取得
-router.get('/crosstab', authenticateToken, async (req, res) => {
+router.get('/crosstab', authenticateToken, async (req, res): Promise<void> => {
   try {
     const questionId1 = req.query.question_id1 as string;
     const questionId2 = req.query.question_id2 as string;
@@ -136,7 +137,7 @@ router.get('/crosstab', authenticateToken, async (req, res) => {
 });
 
 // 管理API: ヒートマップデータ取得
-router.get('/heatmap', authenticateToken, async (req, res) => {
+router.get('/heatmap', authenticateToken, async (req, res): Promise<void> => {
   try {
     const surveyId = req.query.survey_id as string;
     const questionId = req.query.question_id as string;

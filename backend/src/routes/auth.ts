@@ -5,31 +5,36 @@ import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res): Promise<void> => {
   try {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
+      res.status(400).json({ error: 'Username and password are required' });
+      return;
     }
 
     const admin = await AdminModel.findByUsername(username);
     if (!admin) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
     }
 
     const isValidPassword = await AdminModel.verifyPassword(admin, password);
     if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
     }
 
     await AdminModel.updateLastLogin(admin.id);
 
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
-      return res.status(500).json({ error: 'JWT secret not configured' });
+      res.status(500).json({ error: 'JWT secret not configured' });
+      return;
     }
 
+    const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
     const token = jwt.sign(
       {
         id: admin.id,
@@ -38,8 +43,8 @@ router.post('/login', async (req, res) => {
       },
       jwtSecret,
       {
-        expiresIn: process.env.JWT_EXPIRES_IN || '24h',
-      }
+        expiresIn: expiresIn,
+      } as jwt.SignOptions
     );
 
     res.json({
@@ -57,15 +62,17 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.get('/me', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/me', authenticateToken, async (req: AuthRequest, res): Promise<void> => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const admin = await AdminModel.findById(req.user.id);
     if (!admin) {
-      return res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
     res.json(admin);
