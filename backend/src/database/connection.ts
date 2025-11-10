@@ -32,12 +32,34 @@ const pool = new Pool({
 
 export async function connectDatabase() {
   try {
+    // デバッグ情報
+    const connectionString = pool.options.connectionString;
+    if (connectionString) {
+      // パスワードをマスクして表示
+      const maskedUrl = connectionString.replace(/:[^:@]+@/, ':****@');
+      console.log('🔗 Attempting to connect to:', maskedUrl);
+    } else {
+      console.error('❌ Connection string is empty!');
+    }
+    
     const client = await pool.connect();
     console.log('✅ Database connected');
     client.release();
     return pool;
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Database connection error:', error);
+    console.error('');
+    console.error('🔍 Debug information:');
+    console.error('  DATABASE_URL:', process.env.DATABASE_URL ? 'Set (length: ' + process.env.DATABASE_URL.length + ')' : 'NOT SET');
+    console.error('  POSTGRES_URL:', process.env.POSTGRES_URL ? 'Set' : 'NOT SET');
+    console.error('  POSTGRES_CONNECTION_STRING:', process.env.POSTGRES_CONNECTION_STRING ? 'Set' : 'NOT SET');
+    console.error('  NODE_ENV:', process.env.NODE_ENV || 'not set');
+    console.error('');
+    console.error('💡 Railwayでの設定確認:');
+    console.error('  1. バックエンドサービスの「Variables」タブを確認');
+    console.error('  2. DATABASE_URLが設定されているか確認');
+    console.error('  3. 値が ${{PostgreSQL.DATABASE_URL}} の形式か確認');
+    console.error('  4. PostgreSQLサービスの名前が正確か確認');
     throw error;
   }
 }

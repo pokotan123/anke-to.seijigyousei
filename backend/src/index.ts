@@ -31,11 +31,19 @@ const PORT = process.env.PORT || 3001;
 
 // 環境変数の確認
 console.log('🔍 Environment check:');
-console.log('  DATABASE_URL:', process.env.DATABASE_URL ? '✅ Set' : '❌ Not set');
+console.log('  DATABASE_URL:', process.env.DATABASE_URL ? `✅ Set (${process.env.DATABASE_URL.substring(0, 30)}...)` : '❌ Not set');
+console.log('  POSTGRES_URL:', process.env.POSTGRES_URL ? '✅ Set' : '❌ Not set');
+console.log('  POSTGRES_CONNECTION_STRING:', process.env.POSTGRES_CONNECTION_STRING ? '✅ Set' : '❌ Not set');
 console.log('  REDIS_URL:', process.env.REDIS_URL ? '✅ Set' : '❌ Not set');
 console.log('  JWT_SECRET:', process.env.JWT_SECRET ? '✅ Set' : '❌ Not set');
 console.log('  FRONTEND_URL:', process.env.FRONTEND_URL || 'http://localhost:3000');
 console.log('  NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('');
+if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL && !process.env.POSTGRES_CONNECTION_STRING) {
+  console.error('⚠️  WARNING: No database connection string found!');
+  console.error('   Please set DATABASE_URL in Railway environment variables.');
+  console.error('   Format: DATABASE_URL=${{PostgreSQL.DATABASE_URL}}');
+}
 
 // ミドルウェア
 app.use(helmet());
