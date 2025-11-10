@@ -4,11 +4,24 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Railway環境変数の確認
-const databaseUrl = process.env.DATABASE_URL;
+// Railwayでは、PostgreSQLサービスを追加すると自動的にDATABASE_URLが設定されます
+// バックエンドサービスで、${{PostgreSQL.DATABASE_URL}}として参照する必要があります
+const databaseUrl = process.env.DATABASE_URL || 
+  process.env.POSTGRES_URL || 
+  process.env.POSTGRES_CONNECTION_STRING;
+
 if (!databaseUrl) {
   console.error('❌ DATABASE_URL environment variable is not set!');
-  console.error('Please set DATABASE_URL in Railway environment variables.');
-  console.error('Expected format: postgresql://user:password@host:port/database');
+  console.error('');
+  console.error('📋 Railwayでの設定方法:');
+  console.error('  1. PostgreSQLサービスを追加（まだの場合）');
+  console.error('  2. バックエンドサービスの「Variables」タブを開く');
+  console.error('  3. 以下の環境変数を追加:');
+  console.error('     DATABASE_URL=${{PostgreSQL.DATABASE_URL}}');
+  console.error('  4. 「PostgreSQL」の部分は、実際のサービス名に置き換えてください');
+  console.error('');
+  console.error('💡 代替方法: PostgreSQLサービスの「Variables」タブから');
+  console.error('   DATABASE_URLの値をコピーして、直接設定することもできます');
 }
 
 const pool = new Pool({
