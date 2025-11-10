@@ -29,6 +29,14 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3001;
 
+// 環境変数の確認
+console.log('🔍 Environment check:');
+console.log('  DATABASE_URL:', process.env.DATABASE_URL ? '✅ Set' : '❌ Not set');
+console.log('  REDIS_URL:', process.env.REDIS_URL ? '✅ Set' : '❌ Not set');
+console.log('  JWT_SECRET:', process.env.JWT_SECRET ? '✅ Set' : '❌ Not set');
+console.log('  FRONTEND_URL:', process.env.FRONTEND_URL || 'http://localhost:3000');
+console.log('  NODE_ENV:', process.env.NODE_ENV || 'development');
+
 // ミドルウェア
 app.use(helmet());
 app.use(cors({
@@ -55,7 +63,12 @@ setIO(io);
 
 // ヘルスチェック
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    database: process.env.DATABASE_URL ? 'configured' : 'not configured',
+    redis: process.env.REDIS_URL ? 'configured' : 'not configured',
+  });
 });
 
 // エラーハンドリング
@@ -72,7 +85,10 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 // サーバー起動
 async function startServer() {
   try {
+    console.log('🔌 Connecting to database...');
     await connectDatabase();
+    
+    console.log('🔌 Connecting to Redis...');
     await connectRedis();
     
     httpServer.listen(PORT, () => {
@@ -81,6 +97,11 @@ async function startServer() {
     });
   } catch (error) {
     console.error('Failed to start server:', error);
+    console.error('\n💡 Troubleshooting:');
+    console.error('  1. Check if DATABASE_URL is set in Railway environment variables');
+    console.error('  2. Check if REDIS_URL is set in Railway environment variables');
+    console.error('  3. Ensure PostgreSQL and Redis services are running in Railway');
+    console.error('  4. Verify service names match in environment variable references');
     process.exit(1);
   }
 }
@@ -88,4 +109,3 @@ async function startServer() {
 startServer();
 
 export { io };
-
