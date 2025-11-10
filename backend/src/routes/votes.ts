@@ -59,7 +59,8 @@ router.post('/', async (req, res): Promise<void> => {
     // 重複投票チェック
     const hasVoted = await VoteModel.hasVoted(survey.id, question_id, sessionId || 'unknown');
     if (hasVoted) {
-      return res.status(400).json({ error: 'You have already voted for this question' });
+      res.status(400).json({ error: 'You have already voted for this question' });
+      return;
     }
 
     // バリデーション

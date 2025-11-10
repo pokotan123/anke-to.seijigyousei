@@ -20,12 +20,14 @@ router.get('/realtime', authenticateToken, async (req, res): Promise<void> => {
     const cacheKey = `analytics:survey:${surveyId}`;
     const cached = await redisClient.get(cacheKey);
     if (cached) {
-      return res.json(JSON.parse(cached));
+      res.json(JSON.parse(cached));
+      return;
     }
 
     const survey = await SurveyModel.findById(parseInt(surveyId));
     if (!survey) {
-      return res.status(404).json({ error: 'Survey not found' });
+      res.status(404).json({ error: 'Survey not found' });
+      return;
     }
 
     const questions = await QuestionModel.findBySurveyId(survey.id);
@@ -72,7 +74,8 @@ router.get('/aggregate', authenticateToken, async (req, res): Promise<void> => {
     const endDate = req.query.end_date ? new Date(req.query.end_date as string) : undefined;
 
     if (!surveyId) {
-      return res.status(400).json({ error: 'survey_id is required' });
+      res.status(400).json({ error: 'survey_id is required' });
+      return;
     }
 
     if (questionId) {
@@ -117,7 +120,8 @@ router.get('/crosstab', authenticateToken, async (req, res): Promise<void> => {
     const questionId2 = req.query.question_id2 as string;
 
     if (!questionId1 || !questionId2) {
-      return res.status(400).json({ error: 'question_id1 and question_id2 are required' });
+      res.status(400).json({ error: 'question_id1 and question_id2 are required' });
+      return;
     }
 
     const crossTab = await VoteModel.getCrossTabulation(
@@ -143,7 +147,8 @@ router.get('/heatmap', authenticateToken, async (req, res): Promise<void> => {
     const questionId = req.query.question_id as string;
 
     if (!surveyId || !questionId) {
-      return res.status(400).json({ error: 'survey_id and question_id are required' });
+      res.status(400).json({ error: 'survey_id and question_id are required' });
+      return;
     }
 
     const heatmapData = await VoteModel.getHeatmapData(parseInt(surveyId), parseInt(questionId));
