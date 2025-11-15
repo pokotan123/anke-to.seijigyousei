@@ -196,7 +196,7 @@ export default function SurveyEditPage() {
   };
 
   const handleSaveOption = async () => {
-    if (!editingOption || !survey) return;
+    if (!editingOption || !survey || !editingOption.option) return;
 
     try {
       if (editingOption.option.id === 0) {
@@ -637,7 +637,7 @@ export default function SurveyEditPage() {
           )}
 
           {/* 選択肢編集モーダル */}
-          {editingOption && (
+          {editingOption && editingOption.option && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 w-full max-w-md">
                 <h3 className="text-xl font-bold text-gray-900 mb-4">
@@ -654,7 +654,7 @@ export default function SurveyEditPage() {
                       onChange={(e) =>
                         setEditingOption({
                           ...editingOption,
-                          option: { ...editingOption.option, option_text: e.target.value },
+                          option: { ...editingOption.option!, option_text: e.target.value },
                         })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -671,7 +671,7 @@ export default function SurveyEditPage() {
                       onChange={(e) =>
                         setEditingOption({
                           ...editingOption,
-                          option: { ...editingOption.option, order: parseInt(e.target.value) || 0 },
+                          option: { ...editingOption.option!, order: parseInt(e.target.value) || 0 },
                         })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"

@@ -94,6 +94,12 @@ export default function VotePage() {
       }
 
       // 各質問に対して投票を送信
+      if (!survey) {
+        alert('アンケートが見つかりません');
+        setSubmitting(false);
+        return;
+      }
+
       for (const questionId of questionIds) {
         const answer = answers[questionId];
         if (!answer) continue;

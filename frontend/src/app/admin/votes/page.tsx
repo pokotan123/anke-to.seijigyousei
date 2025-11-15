@@ -15,9 +15,15 @@ interface Vote {
   voted_at: string;
 }
 
+interface Question {
+  id: number;
+  question_text: string;
+}
+
 interface Survey {
   id: number;
   title: string;
+  questions?: Question[];
 }
 
 export default function VotesPage() {
@@ -133,7 +139,7 @@ export default function VotesPage() {
 
       const survey = surveys.find((s) => s.id === selectedSurveyId);
       const headers = ['ID', '質問ID', '選択肢ID', '回答テキスト', 'セッションID', 'IPアドレス', '投票日時'];
-      const rows = allVotes.map((vote) => [
+      const rows = allVotes.map((vote: Vote) => [
         vote.id,
         vote.question_id,
         vote.option_id || '',
@@ -145,7 +151,7 @@ export default function VotesPage() {
 
       const csvContent = [
         headers.join(','),
-        ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+        ...rows.map((row: (string | number)[]) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
       ].join('\n');
 
       const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -187,7 +193,7 @@ export default function VotesPage() {
       
       // Excel形式（TSV形式で.xls拡張子）
       const headers = ['ID', '質問ID', '選択肢ID', '回答テキスト', 'セッションID', 'IPアドレス', '投票日時'];
-      const rows = allVotes.map((vote) => [
+      const rows = allVotes.map((vote: Vote) => [
         vote.id,
         vote.question_id,
         vote.option_id || '',
@@ -200,7 +206,7 @@ export default function VotesPage() {
       // TSV形式（タブ区切り）
       const tsvContent = [
         headers.join('\t'),
-        ...rows.map((row) => row.map((cell) => String(cell).replace(/\t/g, ' ')).join('\t')),
+        ...rows.map((row: (string | number)[]) => row.map((cell) => String(cell).replace(/\t/g, ' ')).join('\t')),
       ].join('\n');
 
       const blob = new Blob(['\uFEFF' + tsvContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
