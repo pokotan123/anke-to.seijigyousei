@@ -14,7 +14,14 @@ async function init() {
     console.log('📦 Running migration...');
     // init.sqlを読み込んで実行
     const initSqlPath = path.join(__dirname, '../../database/init.sql');
+    console.log('📄 Reading SQL file from:', initSqlPath);
+    
+    if (!fs.existsSync(initSqlPath)) {
+      throw new Error(`SQL file not found at: ${initSqlPath}`);
+    }
+    
     const sql = fs.readFileSync(initSqlPath, 'utf-8');
+    console.log(`📄 SQL file loaded (${sql.length} characters)`);
 
     // SQLを分割して実行（セミコロンで区切る）
     const statements = sql
@@ -22,20 +29,34 @@ async function init() {
       .map((s) => s.trim())
       .filter((s) => s.length > 0 && !s.startsWith('--'));
 
-    for (const statement of statements) {
+    console.log(`📝 Found ${statements.length} SQL statements to execute`);
+
+    let executedCount = 0;
+    let errorCount = 0;
+    
+    for (let i = 0; i < statements.length; i++) {
+      const statement = statements[i];
       if (statement.length > 0) {
         try {
           await pool.query(statement);
+          executedCount++;
+          if (i < 5 || statement.includes('CREATE TABLE')) {
+            console.log(`✅ Executed statement ${i + 1}/${statements.length}`);
+          }
         } catch (error: any) {
           // 既に存在するエラーは無視
-          if (!error.message.includes('already exists') && !error.message.includes('duplicate')) {
-            console.warn('⚠️  Warning:', error.message);
+          if (error.message.includes('already exists') || error.message.includes('duplicate')) {
+            console.log(`ℹ️  Statement ${i + 1} already exists, skipping`);
+          } else {
+            console.error(`❌ Error executing statement ${i + 1}:`, error.message);
+            console.error(`   Statement: ${statement.substring(0, 100)}...`);
+            errorCount++;
           }
         }
       }
     }
 
-    console.log('✅ Migration completed');
+    console.log(`✅ Migration completed: ${executedCount} statements executed, ${errorCount} errors`);
 
     console.log('🌱 Seeding database...');
     // 管理者アカウント作成（パスワード: admin123）
