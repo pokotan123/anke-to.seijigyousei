@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { voteAPI, surveyAPI, authAPI } from '@/lib/api';
 
@@ -26,7 +26,7 @@ interface Survey {
   questions?: Question[];
 }
 
-export default function VotesPage() {
+function VotesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [surveys, setSurveys] = useState<Survey[]>([]);
@@ -544,6 +544,14 @@ export default function VotesPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function VotesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">読み込み中...</div>}>
+      <VotesPageContent />
+    </Suspense>
   );
 }
 
