@@ -10,18 +10,44 @@ async function init() {
   try {
     console.log('🔌 Connecting to database...');
     await connectDatabase();
+    console.log('✅ Database connected');
 
     console.log('📦 Running migration...');
     // init.sqlを読み込んで実行
+    // __dirnameはコンパイル後のdistディレクトリを指す
+    // ソースコードから見たパス: backend/src/database/init.ts
+    // コンパイル後: backend/dist/database/init.js
+    // SQLファイル: backend/database/init.sql
     const initSqlPath = path.join(__dirname, '../../database/init.sql');
     console.log('📄 Reading SQL file from:', initSqlPath);
+    console.log('📄 Current working directory:', process.cwd());
+    console.log('📄 __dirname:', __dirname);
     
-    if (!fs.existsSync(initSqlPath)) {
-      throw new Error(`SQL file not found at: ${initSqlPath}`);
+    // 複数のパスを試す
+    const possiblePaths = [
+      path.join(__dirname, '../../database/init.sql'),
+      path.join(process.cwd(), 'backend/database/init.sql'),
+      path.join(process.cwd(), 'database/init.sql'),
+    ];
+    
+    let sql = '';
+    let foundPath = '';
+    
+    for (const sqlPath of possiblePaths) {
+      console.log(`🔍 Checking path: ${sqlPath}`);
+      if (fs.existsSync(sqlPath)) {
+        console.log(`✅ Found SQL file at: ${sqlPath}`);
+        foundPath = sqlPath;
+        sql = fs.readFileSync(sqlPath, 'utf-8');
+        break;
+      }
     }
     
-    const sql = fs.readFileSync(initSqlPath, 'utf-8');
-    console.log(`📄 SQL file loaded (${sql.length} characters)`);
+    if (!sql) {
+      throw new Error(`SQL file not found. Checked paths: ${possiblePaths.join(', ')}`);
+    }
+    
+    console.log(`📄 SQL file loaded from ${foundPath} (${sql.length} characters)`);
 
     // SQLを分割して実行（セミコロンで区切る）
     const statements = sql
