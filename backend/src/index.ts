@@ -34,7 +34,10 @@ console.log('🔍 Environment check:');
 console.log('  DATABASE_URL:', process.env.DATABASE_URL ? `✅ Set (${process.env.DATABASE_URL.substring(0, 30)}...)` : '❌ Not set');
 console.log('  POSTGRES_URL:', process.env.POSTGRES_URL ? '✅ Set' : '❌ Not set');
 console.log('  POSTGRES_CONNECTION_STRING:', process.env.POSTGRES_CONNECTION_STRING ? '✅ Set' : '❌ Not set');
-console.log('  REDIS_URL:', process.env.REDIS_URL ? '✅ Set' : '❌ Not set');
+console.log('  REDIS_URL:', process.env.REDIS_URL ? `✅ Set (${process.env.REDIS_URL.substring(0, 30)}...)` : '❌ Not set');
+console.log('  REDIS_HOST:', process.env.REDIS_HOST || '❌ Not set');
+console.log('  REDIS_PORT:', process.env.REDIS_PORT || '❌ Not set (default: 6379)');
+console.log('  REDIS_PASSWORD:', process.env.REDIS_PASSWORD ? '✅ Set' : '❌ Not set');
 console.log('  JWT_SECRET:', process.env.JWT_SECRET ? '✅ Set' : '❌ Not set');
 console.log('  FRONTEND_URL:', process.env.FRONTEND_URL || 'http://localhost:3000');
 console.log('  NODE_ENV:', process.env.NODE_ENV || 'development');
@@ -43,6 +46,13 @@ if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL && !process.env.POSTG
   console.error('⚠️  WARNING: No database connection string found!');
   console.error('   Please set DATABASE_URL in Railway environment variables.');
   console.error('   Format: DATABASE_URL=${{PostgreSQL.DATABASE_URL}}');
+}
+if (!process.env.REDIS_URL && !process.env.REDIS_HOST) {
+  console.error('⚠️  WARNING: Redis connection information is not set!');
+  console.error('   Please set REDIS_URL or REDIS_HOST in Railway environment variables.');
+  console.error('   Format: REDIS_URL=${{Redis.REDIS_URL}}');
+  console.error('   Or: REDIS_HOST=${{Redis.REDIS_HOST}}, REDIS_PORT=${{Redis.REDIS_PORT}}');
+  console.error('   Note: Redis features will not work without this variable.');
 }
 
 // ミドルウェア
@@ -97,7 +107,10 @@ async function startServer() {
     await connectDatabase();
     
     console.log('🔌 Connecting to Redis...');
-    await connectRedis();
+    const redis = await connectRedis();
+    if (!redis) {
+      console.warn('⚠️  Server will start without Redis. Some features may not work.');
+    }
     
     httpServer.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
@@ -107,9 +120,12 @@ async function startServer() {
     console.error('Failed to start server:', error);
     console.error('\n💡 Troubleshooting:');
     console.error('  1. Check if DATABASE_URL is set in Railway environment variables');
+    console.error('     Format: DATABASE_URL=${{PostgreSQL.DATABASE_URL}}');
     console.error('  2. Check if REDIS_URL is set in Railway environment variables');
+    console.error('     Format: REDIS_URL=${{Redis.REDIS_URL}}');
     console.error('  3. Ensure PostgreSQL and Redis services are running in Railway');
     console.error('  4. Verify service names match in environment variable references');
+    console.error('  5. Check that services are started (green indicator)');
     process.exit(1);
   }
 }
