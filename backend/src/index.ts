@@ -79,13 +79,34 @@ app.use('/api/v1/admin/analytics', analyticsRoutes);
 setupSocketIO(io);
 setIO(io);
 
+// ルートパス: API情報を返す
+app.get('/', (_req, res) => {
+  res.json({
+    name: 'アンケート・投票システム API',
+    version: '1.0.0',
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/health',
+      api: {
+        auth: '/api/v1/auth',
+        surveys: '/api/v1/surveys',
+        questions: '/api/v1/questions',
+        votes: '/api/v1/votes',
+        analytics: '/api/v1/admin/analytics',
+      },
+    },
+    documentation: 'This is the backend API server. Please use the frontend application to access the system.',
+  });
+});
+
 // ヘルスチェック
 app.get('/health', (_req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
     database: process.env.DATABASE_URL ? 'configured' : 'not configured',
-    redis: process.env.REDIS_URL ? 'configured' : 'not configured',
+    redis: process.env.REDIS_URL || process.env.REDIS_HOST ? 'configured' : 'not configured',
   });
 });
 
