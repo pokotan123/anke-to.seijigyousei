@@ -10,6 +10,7 @@
     "migrate": "tsx src/database/migrate.ts",
     "seed": "tsx src/database/seed.ts",
     "init": "tsx src/database/init.ts",
+    "reset-password": "tsx src/database/reset-admin-password.ts",
     "lint": "eslint src --ext .ts",
     "test": "jest"
   },
