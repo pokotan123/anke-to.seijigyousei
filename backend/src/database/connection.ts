@@ -28,6 +28,11 @@ const pool = new Pool({
   connectionString: databaseUrl || 
     `postgresql://${process.env.DB_USER || 'survey_user'}:${process.env.DB_PASSWORD || 'survey_password'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'survey_db'}`,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  // 接続プールの設定
+  max: parseInt(process.env.DB_POOL_MAX || '20', 10), // 最大接続数（デフォルト: 20）
+  min: parseInt(process.env.DB_POOL_MIN || '2', 10), // 最小接続数（デフォルト: 2）
+  idleTimeoutMillis: 30000, // アイドル接続のタイムアウト（30秒）
+  connectionTimeoutMillis: 2000, // 接続タイムアウト（2秒）
 });
 
 export async function connectDatabase() {
