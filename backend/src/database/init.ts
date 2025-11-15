@@ -69,7 +69,7 @@ async function init() {
 
     console.log('🌱 Seeding database...');
     // 管理者アカウント作成（パスワード: admin123）
-    // 既に存在する場合はスキップ
+    // 既に存在する場合はパスワードをリセット
     let admin;
     try {
       admin = await AdminModel.create({
@@ -81,12 +81,23 @@ async function init() {
       console.log('✅ Admin created:', admin.username);
     } catch (error: any) {
       if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('already exists')) {
-        console.log('ℹ️  Admin user already exists, fetching existing admin...');
-        admin = await AdminModel.findByUsername('admin');
-        if (!admin) {
+        console.log('ℹ️  Admin user already exists, resetting password...');
+        // パスワードをリセット
+        const bcrypt = require('bcrypt');
+        const passwordHash = await bcrypt.hash('admin123', 10);
+        const updateQuery = `
+          UPDATE admins 
+          SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE username = 'admin'
+          RETURNING id, username, email, role
+        `;
+        const result = await pool.query(updateQuery, [passwordHash]);
+        if (result.rows.length > 0) {
+          admin = await AdminModel.findByUsername('admin');
+          console.log('✅ Admin password reset successfully');
+        } else {
           throw new Error('Admin user should exist but could not be found');
         }
-        console.log('✅ Using existing admin:', admin.username);
       } else {
         throw error;
       }
