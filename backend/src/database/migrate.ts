@@ -7,7 +7,8 @@ async function migrate() {
     await connectDatabase();
 
     // init.sqlを読み込んで実行
-    const initSqlPath = path.join(__dirname, '../../../database/init.sql');
+    // Railway環境では、backend/database/init.sqlを優先的に使用
+    const initSqlPath = path.join(__dirname, '../../database/init.sql');
     const sql = fs.readFileSync(initSqlPath, 'utf-8');
 
     // SQLを分割して実行（セミコロンで区切る）
