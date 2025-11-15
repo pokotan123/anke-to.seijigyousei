@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { voteRateLimit, apiRateLimit } from './middleware/security';
+// レート制限は無効化（制限なし）
 
 import { connectDatabase } from './database/connection';
 import { connectRedis } from './database/redis';
@@ -65,8 +65,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // レート制限
-app.use('/api/v1/votes', voteRateLimit);
-app.use('/api/', apiRateLimit);
+// レート制限は無効化（制限なし）
+// app.use('/api/v1/votes', voteRateLimit);
+// app.use('/api/', apiRateLimit);
 
 // ルーティング
 app.use('/api/v1/auth', authRoutes);
