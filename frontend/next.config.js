@@ -12,21 +12,11 @@ const nextConfig = {
     const currentDir = process.cwd();
     const srcPath = path.resolve(currentDir, 'src');
     
-    // パスエイリアスの設定
+    // パスエイリアスの設定（baseUrlをsrcに設定しているため）
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': srcPath,
     };
-    
-    // モジュール解決の設定
-    if (!config.resolve.modules) {
-      config.resolve.modules = [];
-    }
-    config.resolve.modules = [
-      ...config.resolve.modules,
-      path.resolve(currentDir, 'src'),
-      path.resolve(currentDir, 'node_modules'),
-    ];
     
     return config;
   },
