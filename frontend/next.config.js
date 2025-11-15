@@ -8,18 +8,24 @@ const nextConfig = {
     NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001',
   },
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    // 現在のディレクトリを取得（Vercel環境でも正しく動作するように）
+    const currentDir = process.cwd();
+    const srcPath = path.resolve(currentDir, 'src');
+    
     // パスエイリアスの設定
-    const srcPath = path.resolve(__dirname, 'src');
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': srcPath,
     };
     
     // モジュール解決の設定
+    if (!config.resolve.modules) {
+      config.resolve.modules = [];
+    }
     config.resolve.modules = [
-      path.resolve(__dirname, 'src'),
-      path.resolve(__dirname, 'node_modules'),
-      'node_modules',
+      ...config.resolve.modules,
+      path.resolve(currentDir, 'src'),
+      path.resolve(currentDir, 'node_modules'),
     ];
     
     return config;
