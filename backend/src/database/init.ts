@@ -69,13 +69,28 @@ async function init() {
 
     console.log('🌱 Seeding database...');
     // 管理者アカウント作成（パスワード: admin123）
-    const admin = await AdminModel.create({
-      username: 'admin',
-      password: 'admin123',
-      email: 'admin@example.com',
-      role: 'admin',
-    });
-    console.log('✅ Admin created:', admin.username);
+    // 既に存在する場合はスキップ
+    let admin;
+    try {
+      admin = await AdminModel.create({
+        username: 'admin',
+        password: 'admin123',
+        email: 'admin@example.com',
+        role: 'admin',
+      });
+      console.log('✅ Admin created:', admin.username);
+    } catch (error: any) {
+      if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('already exists')) {
+        console.log('ℹ️  Admin user already exists, fetching existing admin...');
+        admin = await AdminModel.findByUsername('admin');
+        if (!admin) {
+          throw new Error('Admin user should exist but could not be found');
+        }
+        console.log('✅ Using existing admin:', admin.username);
+      } else {
+        throw error;
+      }
+    }
 
     // サンプルアンケート作成
     const survey = await SurveyModel.create({
