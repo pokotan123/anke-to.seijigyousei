@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { voteAPI, surveyAPI, authAPI } from '@/lib/api';
+import { voteAPI, surveyAPI, authAPI } from '../../../lib/api';
 
 interface Vote {
   id: number;

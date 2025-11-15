@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { analyticsAPI, surveyAPI, authAPI } from '@/lib/api';
+import { analyticsAPI, surveyAPI, authAPI } from '../../../lib/api';
 import { io, Socket } from 'socket.io-client';
 import {
   PieChart,

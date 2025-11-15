@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { surveyAPI, authAPI } from '@/lib/api';
+import { surveyAPI, authAPI } from '../../../lib/api';
 
 interface Survey {
   id: number;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { analyticsAPI, surveyAPI, questionAPI, authAPI } from '@/lib/api';
+import { analyticsAPI, surveyAPI, questionAPI, authAPI } from '../../../../lib/api';
 import {
   BarChart,
   Bar,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { surveyAPI, voteAPI } from '@/lib/api';
+import { surveyAPI, voteAPI } from '../../../lib/api';
 // UUID生成の簡易実装（本番環境ではuuidライブラリを使用）
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {

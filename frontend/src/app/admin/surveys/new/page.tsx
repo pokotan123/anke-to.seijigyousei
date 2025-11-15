@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { surveyAPI, authAPI } from '@/lib/api';
+import { surveyAPI, authAPI } from '../../../../lib/api';
 
 export default function NewSurveyPage() {
   const router = useRouter();

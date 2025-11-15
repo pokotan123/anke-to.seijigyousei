@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { surveyAPI, questionAPI, authAPI } from '@/lib/api';
+import { surveyAPI, questionAPI, authAPI } from '../../../../lib/api';
 
 interface Survey {
   id: number;
