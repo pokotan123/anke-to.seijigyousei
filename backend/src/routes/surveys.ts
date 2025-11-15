@@ -14,9 +14,11 @@ router.get('/token/:token', async (req, res) => {
     
     // キャッシュチェック
     const cacheKey = `survey:${token}`;
-    const cached = await redisClient.get(cacheKey);
-    if (cached) {
-      return res.json(JSON.parse(cached));
+    if (redisClient) {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        return res.json(JSON.parse(cached));
+      }
     }
 
     const survey = await SurveyModel.findByToken(token);
@@ -44,7 +46,9 @@ router.get('/token/:token', async (req, res) => {
     };
 
     // キャッシュに保存（1時間）
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(result));
+    if (redisClient) {
+      await redisClient.setEx(cacheKey, 3600, JSON.stringify(result));
+    }
 
     res.json(result);
   } catch (error: any) {
@@ -141,7 +145,9 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     }
 
     // キャッシュを無効化
-    await redisClient.del(`survey:${survey.unique_token}`);
+    if (redisClient) {
+      await redisClient.del(`survey:${survey.unique_token}`);
+    }
 
     res.json(survey);
   } catch (error: any) {
@@ -163,7 +169,9 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     await SurveyModel.delete(id);
 
     // キャッシュを無効化
-    await redisClient.del(`survey:${survey.unique_token}`);
+    if (redisClient) {
+      await redisClient.del(`survey:${survey.unique_token}`);
+    }
 
     res.json({ message: 'Survey deleted successfully' });
   } catch (error: any) {
@@ -183,7 +191,9 @@ router.post('/:id/regenerate-token', authenticateToken, requireAdmin, async (req
     }
 
     // 旧トークンのキャッシュを無効化
-    await redisClient.del(`survey:${survey.unique_token}`);
+    if (redisClient) {
+      await redisClient.del(`survey:${survey.unique_token}`);
+    }
 
     const updatedSurvey = await SurveyModel.regenerateToken(id);
     

@@ -13,10 +13,12 @@ export function setupSocketIO(io: Server) {
 
       // 初期データを送信
       try {
-        const cacheKey = `analytics:survey:${surveyId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) {
-          socket.emit('survey:data', JSON.parse(cached));
+        if (redisClient) {
+          const cacheKey = `analytics:survey:${surveyId}`;
+          const cached = await redisClient.get(cacheKey);
+          if (cached) {
+            socket.emit('survey:data', JSON.parse(cached));
+          }
         }
       } catch (error) {
         console.error('Error sending initial data:', error);
@@ -43,7 +45,9 @@ export async function broadcastVoteUpdate(io: Server, surveyId: number, question
     const totalVotes = await VoteModel.getTotalCount(surveyId);
 
     // キャッシュを無効化
-    await redisClient.del(`analytics:survey:${surveyId}`);
+    if (redisClient) {
+      await redisClient.del(`analytics:survey:${surveyId}`);
+    }
 
     // 購読しているクライアントに送信
     io.to(`survey:${surveyId}`).emit('survey:update', {

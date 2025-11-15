@@ -18,10 +18,12 @@ router.get('/realtime', authenticateToken, async (req, res): Promise<void> => {
 
     // キャッシュチェック
     const cacheKey = `analytics:survey:${surveyId}`;
-    const cached = await redisClient.get(cacheKey);
-    if (cached) {
-      res.json(JSON.parse(cached));
-      return;
+    if (redisClient) {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        res.json(JSON.parse(cached));
+        return;
+      }
     }
 
     const survey = await SurveyModel.findById(parseInt(surveyId));
@@ -56,7 +58,9 @@ router.get('/realtime', authenticateToken, async (req, res): Promise<void> => {
     };
 
     // キャッシュに保存（30秒）
-    await redisClient.setEx(cacheKey, 30, JSON.stringify(result));
+    if (redisClient) {
+      await redisClient.setEx(cacheKey, 30, JSON.stringify(result));
+    }
 
     res.json(result);
   } catch (error: any) {

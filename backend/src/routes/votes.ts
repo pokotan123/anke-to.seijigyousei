@@ -88,8 +88,10 @@ router.post('/', async (req, res): Promise<void> => {
     });
 
     // キャッシュを無効化
-    await redisClient.del(`survey:${survey_token}`);
-    await redisClient.del(`analytics:survey:${survey.id}`);
+    if (redisClient) {
+      await redisClient.del(`survey:${survey_token}`);
+      await redisClient.del(`analytics:survey:${survey.id}`);
+    }
 
     // Socket.ioでリアルタイム通知
     if (ioInstance) {
