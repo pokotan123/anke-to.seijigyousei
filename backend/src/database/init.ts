@@ -93,7 +93,11 @@ async function init() {
         `;
         const result = await pool.query(updateQuery, [passwordHash]);
         if (result.rows.length > 0) {
-          admin = await AdminModel.findByUsername('admin');
+          const foundAdmin = await AdminModel.findByUsername('admin');
+          if (!foundAdmin) {
+            throw new Error('Admin user should exist but could not be found');
+          }
+          admin = foundAdmin;
           console.log('✅ Admin password reset successfully');
         } else {
           throw new Error('Admin user should exist but could not be found');
@@ -101,6 +105,11 @@ async function init() {
       } else {
         throw error;
       }
+    }
+
+    // adminがnullでないことを確認
+    if (!admin) {
+      throw new Error('Admin user is required but was not found or created');
     }
 
     // サンプルアンケート作成
