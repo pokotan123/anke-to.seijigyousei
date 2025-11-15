@@ -49,40 +49,23 @@ async function init() {
     
     console.log(`📄 SQL file loaded from ${foundPath} (${sql.length} characters)`);
 
-    // SQLを分割して実行（セミコロンで区切る）
-    const statements = sql
-      .split(';')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0 && !s.startsWith('--'));
-
-    console.log(`📝 Found ${statements.length} SQL statements to execute`);
-
-    let executedCount = 0;
-    let errorCount = 0;
-    
-    for (let i = 0; i < statements.length; i++) {
-      const statement = statements[i];
-      if (statement.length > 0) {
-        try {
-          await pool.query(statement);
-          executedCount++;
-          if (i < 5 || statement.includes('CREATE TABLE')) {
-            console.log(`✅ Executed statement ${i + 1}/${statements.length}`);
-          }
-        } catch (error: any) {
-          // 既に存在するエラーは無視
-          if (error.message.includes('already exists') || error.message.includes('duplicate')) {
-            console.log(`ℹ️  Statement ${i + 1} already exists, skipping`);
-          } else {
-            console.error(`❌ Error executing statement ${i + 1}:`, error.message);
-            console.error(`   Statement: ${statement.substring(0, 100)}...`);
-            errorCount++;
-          }
-        }
+    // SQLファイル全体を一度に実行
+    // PostgreSQLは複数のSQL文を一度に実行できます
+    // セミコロンで分割すると、複数行のSQL文（CREATE FUNCTION、CREATE TRIGGERなど）が正しく分割されないため
+    try {
+      console.log('📝 Executing SQL file...');
+      await pool.query(sql);
+      console.log('✅ Migration completed successfully');
+    } catch (error: any) {
+      // 既に存在するエラーは無視
+      if (error.message.includes('already exists') || error.message.includes('duplicate')) {
+        console.log('ℹ️  Some objects already exist, continuing...');
+      } else {
+        console.error('❌ Migration error:', error.message);
+        // エラーが発生した場合でも、テーブルが作成されている可能性があるので続行
+        console.warn('⚠️  Continuing despite migration errors...');
       }
     }
-
-    console.log(`✅ Migration completed: ${executedCount} statements executed, ${errorCount} errors`);
 
     console.log('🌱 Seeding database...');
     // 管理者アカウント作成（パスワード: admin123）
