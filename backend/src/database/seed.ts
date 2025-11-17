@@ -1,8 +1,5 @@
 import { connectDatabase } from './connection';
 import { AdminModel } from '../models/Admin';
-import { SurveyModel } from '../models/Survey';
-import { QuestionModel } from '../models/Question';
-import { OptionModel } from '../models/Option';
 
 async function seed() {
   try {

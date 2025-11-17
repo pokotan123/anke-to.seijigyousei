@@ -1,8 +1,5 @@
 import { connectDatabase, pool } from './connection';
 import { AdminModel } from '../models/Admin';
-import { SurveyModel } from '../models/Survey';
-import { QuestionModel } from '../models/Question';
-import { OptionModel } from '../models/Option';
 import fs from 'fs';
 import path from 'path';
 
