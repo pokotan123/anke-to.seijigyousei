@@ -65,6 +65,25 @@ export default function DashboardPage() {
     }
   };
 
+  const handleExportCSV = async (surveyId: number, surveyTitle: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      const blob = await surveyAPI.exportCSV(surveyId);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${surveyTitle}_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'CSVエクスポートに失敗しました');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -139,13 +158,21 @@ export default function DashboardPage() {
                           </p>
                         </div>
                       </Link>
-                      <div className="ml-4 flex items-center space-x-4">
+                      <div className="ml-4 flex items-center space-x-2">
                         <span className="text-sm text-gray-500">
                           {new Date(survey.created_at).toLocaleDateString('ja-JP')}
                         </span>
                         <button
+                          onClick={(e) => handleExportCSV(survey.id, survey.title, e)}
+                          className="px-3 py-1 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded border border-green-300 transition"
+                          title="CSVダウンロード"
+                        >
+                          CSV
+                        </button>
+                        <button
                           onClick={(e) => handleDelete(survey.id, survey.title, e)}
                           className="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded border border-red-300 transition"
+                          title="削除"
                         >
                           削除
                         </button>

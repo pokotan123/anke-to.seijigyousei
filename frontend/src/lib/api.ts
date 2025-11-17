@@ -74,6 +74,12 @@ export const surveyAPI = {
     const response = await api.post(`/surveys/${id}/regenerate-token`);
     return response.data;
   },
+  exportCSV: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/surveys/${id}/export/csv`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
 
 // 質問API

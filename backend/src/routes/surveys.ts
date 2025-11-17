@@ -4,6 +4,7 @@ import { QuestionModel } from '../models/Question';
 import { OptionModel } from '../models/Option';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
 import { redisClient } from '../database/redis';
+import { pool } from '../database/connection';
 
 const router = express.Router();
 
@@ -204,6 +205,91 @@ router.post('/:id/regenerate-token', authenticateToken, requireAdmin, async (req
     res.json(updatedSurvey);
   } catch (error: any) {
     console.error('Regenerate token error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 管理API: CSVエクスポート
+router.get('/:id/export/csv', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const survey = await SurveyModel.findById(id);
+    
+    if (!survey) {
+      return res.status(404).json({ error: 'Survey not found' });
+    }
+
+    // 投票データを取得（質問テキスト、選択肢テキストを含む）
+    const query = `
+      SELECT 
+        v.id,
+        v.survey_id,
+        v.question_id,
+        q.question_text,
+        q.question_type,
+        v.option_id,
+        o.option_text,
+        v.answer_text,
+        v.session_id,
+        v.ip_address,
+        v.voted_at
+      FROM votes v
+      LEFT JOIN questions q ON v.question_id = q.id
+      LEFT JOIN options o ON v.option_id = o.id
+      WHERE v.survey_id = $1
+      ORDER BY v.voted_at DESC
+    `;
+    const result = await pool.query(query, [id]);
+    const votes = result.rows;
+
+    // CSV形式に変換
+    const headers = [
+      'ID',
+      '質問ID',
+      '質問テキスト',
+      '質問タイプ',
+      '選択肢ID',
+      '選択肢テキスト',
+      '回答テキスト',
+      'セッションID',
+      'IPアドレス',
+      '投票日時'
+    ];
+
+    const rows = votes.map((vote) => [
+      vote.id,
+      vote.question_id,
+      vote.question_text || '',
+      vote.question_type || '',
+      vote.option_id || '',
+      vote.option_text || '',
+      vote.answer_text || '',
+      vote.session_id,
+      vote.ip_address || '',
+      new Date(vote.voted_at).toLocaleString('ja-JP')
+    ]);
+
+    // CSV文字列を生成
+    const escapeCSV = (value: any): string => {
+      const str = String(value || '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const csvContent = [
+      headers.map(escapeCSV).join(','),
+      ...rows.map(row => row.map(escapeCSV).join(','))
+    ].join('\n');
+
+    // BOM付きUTF-8で返す（Excelで正しく開けるように）
+    const bom = '\uFEFF';
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(survey.title)}_${new Date().toISOString().split('T')[0]}.csv"`);
+    res.send(bom + csvContent);
+  } catch (error: any) {
+    console.error('Export CSV error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
