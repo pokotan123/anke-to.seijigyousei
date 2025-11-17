@@ -46,6 +46,25 @@ export default function DashboardPage() {
     router.push('/admin/login');
   };
 
+  const handleDelete = async (surveyId: number, surveyTitle: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!confirm(`「${surveyTitle}」を削除しますか？\nこの操作は取り消せません。`)) {
+      return;
+    }
+
+    try {
+      await surveyAPI.delete(surveyId);
+      alert('アンケートを削除しました');
+      // リストを再読み込み
+      const data = await surveyAPI.list();
+      setSurveys(data);
+    } catch (err: any) {
+      alert(err.response?.data?.error || '削除に失敗しました');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -104,10 +123,10 @@ export default function DashboardPage() {
             <ul className="divide-y divide-gray-200">
               {surveys.map((survey) => (
                 <li key={survey.id}>
-                  <Link href={`/admin/surveys/${survey.id}`} className="block hover:bg-gray-50">
-                    <div className="px-4 py-4 sm:px-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
+                  <div className="px-4 py-4 sm:px-6 hover:bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <Link href={`/admin/surveys/${survey.id}`} className="flex-1">
+                        <div>
                           <h3 className="text-lg font-medium text-gray-900">
                             {survey.title}
                           </h3>
@@ -119,14 +138,20 @@ export default function DashboardPage() {
                             投票URL: {typeof window !== 'undefined' && `${window.location.origin}/vote/${survey.unique_token}`}
                           </p>
                         </div>
-                        <div className="ml-4">
-                          <span className="text-sm text-gray-500">
-                            {new Date(survey.created_at).toLocaleDateString('ja-JP')}
-                          </span>
-                        </div>
+                      </Link>
+                      <div className="ml-4 flex items-center space-x-4">
+                        <span className="text-sm text-gray-500">
+                          {new Date(survey.created_at).toLocaleDateString('ja-JP')}
+                        </span>
+                        <button
+                          onClick={(e) => handleDelete(survey.id, survey.title, e)}
+                          className="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded border border-red-300 transition"
+                        >
+                          削除
+                        </button>
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 </li>
               ))}
             </ul>
