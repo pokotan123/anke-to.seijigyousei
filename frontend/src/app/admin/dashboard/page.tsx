@@ -88,25 +88,7 @@ export default function DashboardPage() {
       URL.revokeObjectURL(url);
     } catch (err: any) {
       console.error('CSV export error:', err);
-      let errorMessage = 'CSVエクスポートに失敗しました';
-      
-      if (err.response?.data) {
-        if (err.response.data instanceof Blob) {
-          // blobエラーの場合、テキストとして読み取る
-          const text = await err.response.data.text();
-          try {
-            const errorData = JSON.parse(text);
-            errorMessage = errorData.error || errorMessage;
-          } catch (e) {
-            errorMessage = text || errorMessage;
-          }
-        } else if (typeof err.response.data === 'object' && err.response.data.error) {
-          errorMessage = err.response.data.error;
-        }
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
+      const errorMessage = err.message || 'CSVエクスポートに失敗しました';
       alert(errorMessage);
     }
   };
