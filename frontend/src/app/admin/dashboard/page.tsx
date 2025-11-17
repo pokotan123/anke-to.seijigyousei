@@ -71,16 +71,43 @@ export default function DashboardPage() {
 
     try {
       const blob = await surveyAPI.exportCSV(surveyId);
+      
+      // blobが空でないことを確認
+      if (!blob || blob.size === 0) {
+        alert('CSVデータが空です');
+        return;
+      }
+
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${surveyTitle}_${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `${surveyTitle.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert(err.response?.data?.error || 'CSVエクスポートに失敗しました');
+      console.error('CSV export error:', err);
+      let errorMessage = 'CSVエクスポートに失敗しました';
+      
+      if (err.response?.data) {
+        if (err.response.data instanceof Blob) {
+          // blobエラーの場合、テキストとして読み取る
+          const text = await err.response.data.text();
+          try {
+            const errorData = JSON.parse(text);
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            errorMessage = text || errorMessage;
+          }
+        } else if (typeof err.response.data === 'object' && err.response.data.error) {
+          errorMessage = err.response.data.error;
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      alert(errorMessage);
     }
   };
 

@@ -20,8 +20,38 @@ api.interceptors.request.use((config) => {
 
 // レスポンスインターセプター（エラーハンドリング）
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // blobレスポンスの場合はそのまま返す
+    if (response.config.responseType === 'blob') {
+      return response;
+    }
+    return response;
+  },
   (error) => {
+    // blobレスポンスのエラーの場合、JSONとして解析を試みる
+    if (error.config?.responseType === 'blob' && error.response?.data) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const errorData = JSON.parse(reader.result as string);
+            if (errorData.error) {
+              error.response.data = errorData;
+              if (error.response.status === 401) {
+                localStorage.removeItem('token');
+                window.location.href = '/admin/login';
+              }
+            }
+          } catch (e) {
+            // JSON解析に失敗した場合はそのまま
+          }
+          reject(error);
+        };
+        reader.onerror = () => reject(error);
+        reader.readAsText(error.response.data);
+      });
+    }
+    
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/admin/login';
@@ -75,10 +105,31 @@ export const surveyAPI = {
     return response.data;
   },
   exportCSV: async (id: number): Promise<Blob> => {
-    const response = await api.get(`/surveys/${id}/export/csv`, {
-      responseType: 'blob',
+    // fetch APIを直接使用してblobを確実に取得
+    const token = localStorage.getItem('token');
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const url = `${API_URL}/api/v1/surveys/${id}/export/csv`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
     });
-    return response.data;
+
+    if (!response.ok) {
+      // エラーレスポンスをテキストとして読み取る
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { error: errorText || 'CSVエクスポートに失敗しました' };
+      }
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    return await response.blob();
   },
 };
 
