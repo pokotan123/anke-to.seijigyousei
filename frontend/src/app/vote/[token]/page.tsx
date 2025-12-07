@@ -192,7 +192,7 @@ export default function VotePage() {
           <div className="bg-white rounded-lg shadow-xl p-8 max-w-md mx-4">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">投票に関する確認</h2>
             <p className="text-gray-700 mb-6">
-              この投票は誰かに矯正されたものではありません
+              この投票は誰かに強制されたものではありません
             </p>
             <label className="flex items-center mb-6 cursor-pointer">
               <input
