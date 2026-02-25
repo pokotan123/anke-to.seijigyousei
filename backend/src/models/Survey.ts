@@ -14,6 +14,9 @@ export interface Survey {
   registration_deadline: Date | null;
   registration_fields: any[] | null;
   linked_voting_survey_id: number | null;
+  vote_mail_body: string | null;
+  reminder_mail_body: string | null;
+  registration_mail_body: string | null;
   created_at: Date;
   updated_at: Date;
   created_by: number;
@@ -31,6 +34,9 @@ export interface CreateSurveyInput {
   registration_deadline?: Date;
   registration_fields?: any[];
   linked_voting_survey_id?: number | null;
+  vote_mail_body?: string;
+  reminder_mail_body?: string;
+  registration_mail_body?: string;
 }
 
 export interface UpdateSurveyInput {
@@ -44,14 +50,17 @@ export interface UpdateSurveyInput {
   registration_deadline?: Date;
   registration_fields?: any[];
   linked_voting_survey_id?: number | null;
+  vote_mail_body?: string;
+  reminder_mail_body?: string;
+  registration_mail_body?: string;
 }
 
 export class SurveyModel {
   static async create(input: CreateSurveyInput): Promise<Survey> {
     const uniqueToken = this.generateUniqueToken();
     const query = `
-      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by, require_registration, registration_message, registration_deadline, registration_fields, linked_voting_survey_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by, require_registration, registration_message, registration_deadline, registration_fields, linked_voting_survey_id, vote_mail_body, reminder_mail_body, registration_mail_body)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
     const values = [
@@ -67,6 +76,9 @@ export class SurveyModel {
       input.registration_deadline || null,
       input.registration_fields ? JSON.stringify(input.registration_fields) : '[]',
       input.linked_voting_survey_id || null,
+      input.vote_mail_body || null,
+      input.reminder_mail_body || null,
+      input.registration_mail_body || null,
     ];
 
     const result = await pool.query(query, values);
@@ -143,6 +155,18 @@ export class SurveyModel {
     if (input.linked_voting_survey_id !== undefined) {
       fields.push(`linked_voting_survey_id = $${paramCount++}`);
       values.push(input.linked_voting_survey_id);
+    }
+    if (input.vote_mail_body !== undefined) {
+      fields.push(`vote_mail_body = $${paramCount++}`);
+      values.push(input.vote_mail_body);
+    }
+    if (input.reminder_mail_body !== undefined) {
+      fields.push(`reminder_mail_body = $${paramCount++}`);
+      values.push(input.reminder_mail_body);
+    }
+    if (input.registration_mail_body !== undefined) {
+      fields.push(`registration_mail_body = $${paramCount++}`);
+      values.push(input.registration_mail_body);
     }
 
     if (fields.length === 0) {

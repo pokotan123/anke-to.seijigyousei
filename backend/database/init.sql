@@ -190,3 +190,18 @@ CREATE INDEX IF NOT EXISTS idx_votes_voter_token ON votes(voter_token);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_voter_question
   ON votes(voter_token, question_id)
   WHERE voter_token IS NOT NULL;
+
+-- カスタムメールテンプレート
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surveys' AND column_name='vote_mail_body') THEN
+        ALTER TABLE surveys ADD COLUMN vote_mail_body TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surveys' AND column_name='reminder_mail_body') THEN
+        ALTER TABLE surveys ADD COLUMN reminder_mail_body TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surveys' AND column_name='registration_mail_body') THEN
+        ALTER TABLE surveys ADD COLUMN registration_mail_body TEXT;
+    END IF;
+END
+$$;

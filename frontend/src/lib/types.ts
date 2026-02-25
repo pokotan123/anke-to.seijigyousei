@@ -12,6 +12,9 @@ export interface Survey {
   registration_deadline: string | null;
   registration_fields?: { name: string; required: boolean }[];
   linked_voting_survey_id: number | null;
+  vote_mail_body?: string | null;
+  reminder_mail_body?: string | null;
+  registration_mail_body?: string | null;
   questions: Question[];
 }
 

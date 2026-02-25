@@ -165,6 +165,20 @@ router.post('/register', registerRateLimit, async (req, res): Promise<void> => {
       client.release();
     }
 
+    // 登録完了メール送信（トランザクション外で非同期実行）
+    const votingSurvey = await SurveyModel.findById(survey.linked_voting_survey_id);
+    const votingSurveyTitle = votingSurvey ? votingSurvey.title : '投票アンケート';
+
+    MailService.sendRegistrationConfirmation({
+      email,
+      surveyTitle: survey.title,
+      votingSurveyTitle,
+      customBody: survey.registration_mail_body,
+    }).catch((err) => {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`Registration confirmation email failed for ${email}:`, errMsg);
+    });
+
     res.status(201).json({
       message: '登録が完了しました。投票リンクは後日メールでお届けします。',
     });
@@ -290,6 +304,7 @@ router.post('/send-links', authenticateToken, async (req: AuthRequest, res): Pro
         surveyTitle: survey.title,
         surveyDescription: survey.description,
         endDate: survey.end_date,
+        customBody: survey.vote_mail_body,
       });
 
       if (result.success) {
@@ -348,6 +363,7 @@ router.post('/remind', authenticateToken, async (req: AuthRequest, res): Promise
         voterToken: voter.voter_token,
         surveyTitle: survey.title,
         endDate: survey.end_date,
+        customBody: survey.reminder_mail_body,
       });
 
       if (result.success) {

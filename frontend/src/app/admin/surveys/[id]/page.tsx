@@ -97,6 +97,9 @@ export default function SurveyEditPage() {
         registration_deadline: survey.registration_deadline,
         registration_fields: (survey.registration_fields || []).filter((f) => f.name.trim() !== ''),
         linked_voting_survey_id: survey.linked_voting_survey_id,
+        vote_mail_body: survey.vote_mail_body,
+        reminder_mail_body: survey.reminder_mail_body,
+        registration_mail_body: survey.registration_mail_body,
       });
       alert('保存しました');
     } catch (err: any) {
@@ -461,6 +464,54 @@ export default function SurveyEditPage() {
             </p>
           </div>
         )}
+
+        {/* メール文面設定カード */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 sm:p-8 mb-6">
+          <h2 className="text-sm font-bold text-slate-800 mb-2">メール文面設定</h2>
+          <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+            空欄の場合はデフォルトの文面が使用されます。投票リンクのボタンは自動的に挿入されます。
+          </p>
+          <div className="space-y-5">
+            {!isRegistrationSurvey ? (
+              <>
+                <div>
+                  <label htmlFor="voteMailBody" className={labelClass}>投票リンクメール本文</label>
+                  <textarea
+                    id="voteMailBody"
+                    value={survey.vote_mail_body || ''}
+                    onChange={(e) => setSurvey({ ...survey, vote_mail_body: e.target.value || null })}
+                    rows={5}
+                    placeholder="例: ○○アンケートへの投票をお願いいたします。下記のボタンから投票画面にお進みください。"
+                    className={`${inputClass} resize-none leading-relaxed`}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="reminderMailBody" className={labelClass}>リマインドメール本文</label>
+                  <textarea
+                    id="reminderMailBody"
+                    value={survey.reminder_mail_body || ''}
+                    onChange={(e) => setSurvey({ ...survey, reminder_mail_body: e.target.value || null })}
+                    rows={5}
+                    placeholder="例: まだ投票がお済みでないようです。期限までに投票をお願いいたします。"
+                    className={`${inputClass} resize-none leading-relaxed`}
+                  />
+                </div>
+              </>
+            ) : (
+              <div>
+                <label htmlFor="registrationMailBody" className={labelClass}>登録完了メール本文</label>
+                <textarea
+                  id="registrationMailBody"
+                  value={survey.registration_mail_body || ''}
+                  onChange={(e) => setSurvey({ ...survey, registration_mail_body: e.target.value || null })}
+                  rows={5}
+                  placeholder="例: ご登録ありがとうございます。投票リンクは後日メールでお届けします。"
+                  className={`${inputClass} resize-none leading-relaxed`}
+                />
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* 質問管理 */}
         <QuestionList

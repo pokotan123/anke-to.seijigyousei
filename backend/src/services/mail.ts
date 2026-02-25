@@ -11,6 +11,7 @@ interface SendVoteLinkParams {
   surveyTitle: string;
   surveyDescription: string | null;
   endDate: Date | null;
+  customBody?: string | null;
 }
 
 interface SendReminderParams {
@@ -18,6 +19,7 @@ interface SendReminderParams {
   voterToken: string;
   surveyTitle: string;
   endDate: Date | null;
+  customBody?: string | null;
 }
 
 interface MailResult {
@@ -90,11 +92,58 @@ function buildReminderHtml(params: SendReminderParams, voteUrl: string, endDateS
   `;
 }
 
+interface SendRegistrationConfirmationParams {
+  email: string;
+  surveyTitle: string;
+  votingSurveyTitle: string;
+  customBody?: string | null;
+}
+
+function buildRegistrationConfirmationHtml(params: SendRegistrationConfirmationParams): string {
+  return `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>登録完了のお知らせ</h2>
+      <p>${escapeHtml(params.email)} 様</p>
+      <p>以下のアンケートへの登録が完了しました。</p>
+      <table style="border-collapse: collapse; margin: 16px 0; width: 100%;">
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 8px; font-weight: bold; color: #475569;">登録アンケート</td>
+          <td style="padding: 8px;">${escapeHtml(params.surveyTitle)}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 8px; font-weight: bold; color: #475569;">投票アンケート</td>
+          <td style="padding: 8px;">${escapeHtml(params.votingSurveyTitle)}</td>
+        </tr>
+      </table>
+      <p>投票リンクは後日メールでお届けします。しばらくお待ちください。</p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+      <p style="color: #94a3b8; font-size: 12px;">※このメールは自動送信です。心当たりがない場合は破棄してください。</p>
+    </div>
+  `;
+}
+
+function buildCustomBodyHtml(body: string, actionUrl?: string, actionLabel?: string): string {
+  const actionButton = actionUrl && actionLabel
+    ? `<p><a href="${actionUrl}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px;">${escapeHtml(actionLabel)}</a></p>`
+    : '';
+
+  return `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+      ${escapeHtml(body).replace(/\n/g, '<br />')}
+      ${actionButton}
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+      <p style="color: #94a3b8; font-size: 12px;">※このメールは自動送信です。</p>
+    </div>
+  `;
+}
+
 export class MailService {
   static async sendVoteLink(params: SendVoteLinkParams): Promise<MailResult> {
     const voteUrl = buildVoteUrl(params.voterToken);
     const endDateStr = formatEndDate(params.endDate);
-    const html = buildVoteLinkHtml(params, voteUrl, endDateStr);
+    const html = params.customBody
+      ? buildCustomBodyHtml(params.customBody, voteUrl, '投票する')
+      : buildVoteLinkHtml(params, voteUrl, endDateStr);
 
     try {
       await resend.emails.send({
@@ -113,7 +162,9 @@ export class MailService {
   static async sendReminder(params: SendReminderParams): Promise<MailResult> {
     const voteUrl = buildVoteUrl(params.voterToken);
     const endDateStr = formatEndDate(params.endDate);
-    const html = buildReminderHtml(params, voteUrl, endDateStr);
+    const html = params.customBody
+      ? buildCustomBodyHtml(params.customBody, voteUrl, '今すぐ投票する')
+      : buildReminderHtml(params, voteUrl, endDateStr);
 
     try {
       await resend.emails.send({
@@ -125,6 +176,25 @@ export class MailService {
       return { success: true };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'リマインドメール送信に失敗しました';
+      return { success: false, error: message };
+    }
+  }
+
+  static async sendRegistrationConfirmation(params: SendRegistrationConfirmationParams): Promise<MailResult> {
+    const html = params.customBody
+      ? buildCustomBodyHtml(params.customBody)
+      : buildRegistrationConfirmationHtml(params);
+
+    try {
+      await resend.emails.send({
+        from: MAIL_FROM,
+        to: params.email,
+        subject: `【${params.surveyTitle}】登録完了のお知らせ`,
+        html,
+      });
+      return { success: true };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '登録完了メール送信に失敗しました';
       return { success: false, error: message };
     }
   }
