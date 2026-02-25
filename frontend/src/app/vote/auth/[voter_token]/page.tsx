@@ -20,6 +20,7 @@ export default function AuthVotePage() {
   const [answers, setAnswers] = useState<Record<number, AnswerValue>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [data, setData] = useState<VerifyResponse | null>(null);
+  const [consentChecked, setConsentChecked] = useState(false);
 
   useEffect(() => {
     const verifyToken = async () => {
@@ -114,7 +115,7 @@ export default function AuthVotePage() {
         {data.survey.end_date && (
           <p className="text-xs text-slate-400 mb-5">投票期限: {new Date(data.survey.end_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
         )}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
           <p className="text-xs font-semibold text-primary-700 mb-2">投票に関する注意事項</p>
           <ul className="text-xs text-primary-600 space-y-1 list-disc list-inside">
             <li>投票は1回限りです。一度送信すると変更できません。</li>
@@ -122,7 +123,15 @@ export default function AuthVotePage() {
             <li>あなたの投票内容が誰かに知られることはありません。</li>
           </ul>
         </div>
-        <button onClick={() => setPageState('voting')} className="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 cursor-pointer transition-colors">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6">
+          <p className="text-xs font-semibold text-slate-700 mb-3">投票に関する確認</p>
+          <p className="text-xs text-slate-600 mb-3 leading-relaxed">この投票は誰かに強制されたものではありません。</p>
+          <label className="flex items-center cursor-pointer">
+            <input type="checkbox" checked={consentChecked} onChange={(e) => setConsentChecked(e.target.checked)} className="w-4 h-4 text-primary-600 border-slate-300 rounded cursor-pointer" />
+            <span className="ml-2.5 text-xs text-slate-700">上記の内容に同意します</span>
+          </label>
+        </div>
+        <button onClick={() => { if (consentChecked) setPageState('voting'); }} disabled={!consentChecked} className="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer transition-colors">
           同意して投票する
         </button>
       </div>
