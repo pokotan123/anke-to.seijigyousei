@@ -3,7 +3,10 @@ import { Resend } from 'resend';
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const MAIL_FROM = process.env.MAIL_FROM || 'noreply@example.com';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const rawFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+const FRONTEND_URL = rawFrontendUrl.includes(',')
+  ? rawFrontendUrl.split(',').pop()!.trim()
+  : rawFrontendUrl;
 
 interface SendVoteLinkParams {
   email: string;
