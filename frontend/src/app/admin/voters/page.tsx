@@ -17,9 +17,10 @@ function buildRegistrationUrl(token: string): string {
 
 export default function VotersPage() {
   const router = useRouter();
-  const [surveys, setSurveys] = useState<SurveyListItem[]>([]);
-  const [selectedSurveyId, setSelectedSurveyId] = useState<number | null>(null);
-  const [selectedSurvey, setSelectedSurvey] = useState<Survey | null>(null);
+  const [allSurveys, setAllSurveys] = useState<SurveyListItem[]>([]);
+  const [votingSurveys, setVotingSurveys] = useState<SurveyListItem[]>([]);
+  const [selectedVotingSurveyId, setSelectedVotingSurveyId] = useState<number | null>(null);
+  const [linkedRegSurvey, setLinkedRegSurvey] = useState<Survey | null>(null);
   const [voters, setVoters] = useState<VoterRow[]>([]);
   const [summary, setSummary] = useState<VoterSummary>(EMPTY_SUMMARY);
   const [fields, setFields] = useState<{ name: string; required: boolean }[]>([]);
@@ -39,13 +40,12 @@ export default function VotersPage() {
       }
       try {
         await authAPI.getMe();
-        const allSurveys: SurveyListItem[] = await surveyAPI.list();
-        const registrationSurveys = allSurveys.filter(
-          (s) => s.linked_voting_survey_id !== null
-        );
-        setSurveys(registrationSurveys);
-        if (registrationSurveys.length > 0) {
-          setSelectedSurveyId(registrationSurveys[0].id);
+        const surveys: SurveyListItem[] = await surveyAPI.list();
+        setAllSurveys(surveys);
+        const voting = surveys.filter((s) => !s.linked_voting_survey_id);
+        setVotingSurveys(voting);
+        if (voting.length > 0) {
+          setSelectedVotingSurveyId(voting[0].id);
         }
       } catch {
         localStorage.removeItem('token');
@@ -58,22 +58,36 @@ export default function VotersPage() {
   }, [router]);
 
   useEffect(() => {
-    if (!selectedSurveyId) return;
+    if (!selectedVotingSurveyId) return;
+
+    const linkedReg = allSurveys.find(
+      (s) => s.linked_voting_survey_id === selectedVotingSurveyId
+    );
+
+    if (!linkedReg) {
+      setLinkedRegSurvey(null);
+      setVoters([]);
+      setSummary(EMPTY_SUMMARY);
+      setFields([]);
+      setVotersLoading(false);
+      setMessage('この投票アンケートには登録アンケートが紐づけられていません');
+      return;
+    }
 
     const loadVoters = async () => {
       setVotersLoading(true);
       setMessage('');
       try {
-        const [voterData, surveyDetail] = await Promise.all([
-          voterAPI.list(selectedSurveyId),
-          surveyAPI.get(selectedSurveyId),
+        const [voterData, regDetail] = await Promise.all([
+          voterAPI.list(linkedReg.id),
+          surveyAPI.get(linkedReg.id),
         ]);
         const voterList: VoterRow[] = voterData.voters ?? voterData;
         const voterSummary: VoterSummary = voterData.summary ?? EMPTY_SUMMARY;
         setVoters(voterList);
         setSummary(voterSummary);
-        setSelectedSurvey(surveyDetail);
-        setFields(surveyDetail.registration_fields ?? []);
+        setLinkedRegSurvey(regDetail);
+        setFields(regDetail.registration_fields ?? []);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '投票者の読み込みに失敗しました';
         setMessage(errorMessage);
@@ -82,7 +96,7 @@ export default function VotersPage() {
       }
     };
     loadVoters();
-  }, [selectedSurveyId]);
+  }, [selectedVotingSurveyId, allSurveys]);
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('token');
@@ -91,17 +105,17 @@ export default function VotersPage() {
 
   const handleSurveyChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
-    setSelectedSurveyId(value ? Number(value) : null);
+    setSelectedVotingSurveyId(value ? Number(value) : null);
   }, []);
 
   const handleSendLinks = useCallback(async () => {
-    if (!selectedSurveyId) return;
+    if (!linkedRegSurvey) return;
     setIsSending(true);
     setMessage('');
     try {
-      const result = await voterAPI.sendLinks(selectedSurveyId);
+      const result = await voterAPI.sendLinks(linkedRegSurvey.id);
       setMessage(result.message ?? '投票リンクを送信しました');
-      const voterData = await voterAPI.list(selectedSurveyId);
+      const voterData = await voterAPI.list(linkedRegSurvey.id);
       setVoters(voterData.voters ?? voterData);
       setSummary(voterData.summary ?? EMPTY_SUMMARY);
     } catch (err) {
@@ -110,16 +124,16 @@ export default function VotersPage() {
     } finally {
       setIsSending(false);
     }
-  }, [selectedSurveyId]);
+  }, [linkedRegSurvey]);
 
   const handleRemind = useCallback(async () => {
-    if (!selectedSurveyId) return;
+    if (!linkedRegSurvey) return;
     setIsReminding(true);
     setMessage('');
     try {
-      const result = await voterAPI.remind(selectedSurveyId);
+      const result = await voterAPI.remind(linkedRegSurvey.id);
       setMessage(result.message ?? 'リマインドメールを送信しました');
-      const voterData = await voterAPI.list(selectedSurveyId);
+      const voterData = await voterAPI.list(linkedRegSurvey.id);
       setVoters(voterData.voters ?? voterData);
       setSummary(voterData.summary ?? EMPTY_SUMMARY);
     } catch (err) {
@@ -128,11 +142,11 @@ export default function VotersPage() {
     } finally {
       setIsReminding(false);
     }
-  }, [selectedSurveyId]);
+  }, [linkedRegSurvey]);
 
   const handleCopyUrl = useCallback(async () => {
-    if (!selectedSurvey) return;
-    const url = buildRegistrationUrl(selectedSurvey.unique_token);
+    if (!linkedRegSurvey) return;
+    const url = buildRegistrationUrl(linkedRegSurvey.unique_token);
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -140,7 +154,7 @@ export default function VotersPage() {
     } catch {
       setMessage('URLのコピーに失敗しました');
     }
-  }, [selectedSurvey]);
+  }, [linkedRegSurvey]);
 
   if (loading) {
     return (
@@ -160,22 +174,22 @@ export default function VotersPage() {
         {/* Survey selector */}
         <div className="bg-white rounded-2xl border border-slate-200/80 p-5">
           <label htmlFor="survey-select" className="block text-sm font-medium text-slate-600 mb-2">
-            登録アンケート選択
+            投票アンケート選択
           </label>
           <select
             id="survey-select"
-            value={selectedSurveyId ?? ''}
+            value={selectedVotingSurveyId ?? ''}
             onChange={handleSurveyChange}
             className="w-full sm:w-80 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
           >
             <option value="">-- 選択してください --</option>
-            {surveys.map((s) => (
+            {votingSurveys.map((s) => (
               <option key={s.id} value={s.id}>{s.title}</option>
             ))}
           </select>
         </div>
 
-        {selectedSurveyId && (
+        {selectedVotingSurveyId && (
           <>
             {/* Summary cards */}
             <VoterSummaryCards summary={summary} loading={votersLoading} />
@@ -200,11 +214,11 @@ export default function VotersPage() {
               </div>
 
               {/* Registration URL */}
-              {selectedSurvey && (
+              {linkedRegSurvey && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-500 shrink-0">登録URL:</span>
                   <code className="flex-1 min-w-0 truncate text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-700">
-                    {buildRegistrationUrl(selectedSurvey.unique_token)}
+                    {buildRegistrationUrl(linkedRegSurvey.unique_token)}
                   </code>
                   <button
                     onClick={handleCopyUrl}
@@ -226,11 +240,11 @@ export default function VotersPage() {
           </>
         )}
 
-        {!selectedSurveyId && surveys.length === 0 && (
+        {!selectedVotingSurveyId && votingSurveys.length === 0 && (
           <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center">
-            <p className="text-sm text-slate-400">登録アンケートがまだ作成されていません</p>
+            <p className="text-sm text-slate-400">投票アンケートがまだ作成されていません</p>
             <p className="text-xs text-slate-400 mt-1">
-              ダッシュボードから登録用アンケートを作成してください
+              ダッシュボードから投票アンケートを作成してください
             </p>
           </div>
         )}
