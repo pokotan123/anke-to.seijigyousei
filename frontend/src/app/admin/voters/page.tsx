@@ -79,7 +79,7 @@ export default function VotersPage() {
       setMessage('');
       try {
         const [voterData, regDetail] = await Promise.all([
-          voterAPI.list(linkedReg.id),
+          voterAPI.list(selectedVotingSurveyId),
           surveyAPI.get(linkedReg.id),
         ]);
         const voterList: VoterRow[] = voterData.voters ?? voterData;
@@ -109,13 +109,13 @@ export default function VotersPage() {
   }, []);
 
   const handleSendLinks = useCallback(async () => {
-    if (!linkedRegSurvey) return;
+    if (!selectedVotingSurveyId) return;
     setIsSending(true);
     setMessage('');
     try {
-      const result = await voterAPI.sendLinks(linkedRegSurvey.id);
+      const result = await voterAPI.sendLinks(selectedVotingSurveyId);
       setMessage(result.message ?? '投票リンクを送信しました');
-      const voterData = await voterAPI.list(linkedRegSurvey.id);
+      const voterData = await voterAPI.list(selectedVotingSurveyId);
       setVoters(voterData.voters ?? voterData);
       setSummary(voterData.summary ?? EMPTY_SUMMARY);
     } catch (err) {
@@ -124,16 +124,16 @@ export default function VotersPage() {
     } finally {
       setIsSending(false);
     }
-  }, [linkedRegSurvey]);
+  }, [selectedVotingSurveyId]);
 
   const handleRemind = useCallback(async () => {
-    if (!linkedRegSurvey) return;
+    if (!selectedVotingSurveyId) return;
     setIsReminding(true);
     setMessage('');
     try {
-      const result = await voterAPI.remind(linkedRegSurvey.id);
+      const result = await voterAPI.remind(selectedVotingSurveyId);
       setMessage(result.message ?? 'リマインドメールを送信しました');
-      const voterData = await voterAPI.list(linkedRegSurvey.id);
+      const voterData = await voterAPI.list(selectedVotingSurveyId);
       setVoters(voterData.voters ?? voterData);
       setSummary(voterData.summary ?? EMPTY_SUMMARY);
     } catch (err) {
@@ -142,7 +142,7 @@ export default function VotersPage() {
     } finally {
       setIsReminding(false);
     }
-  }, [linkedRegSurvey]);
+  }, [selectedVotingSurveyId]);
 
   const handleCopyUrl = useCallback(async () => {
     if (!linkedRegSurvey) return;
