@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { surveyAPI, voteAPI } from '../../../lib/api';
-// UUID生成の簡易実装（本番環境ではuuidライブラリを使用）
+
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -19,18 +19,8 @@ interface Question {
   is_required: boolean;
   options?: Option[];
 }
-
-interface Option {
-  id: number;
-  option_text: string;
-}
-
-interface Survey {
-  id: number;
-  title: string;
-  description: string;
-  questions: Question[];
-}
+interface Option { id: number; option_text: string; }
+interface Survey { id: number; title: string; description: string; questions: Question[]; }
 
 export default function VotePage() {
   const params = useParams();
@@ -50,252 +40,120 @@ export default function VotePage() {
   const [sessionId] = useState(() => {
     if (typeof window !== 'undefined') {
       let id = localStorage.getItem('session_id');
-      if (!id) {
-        id = generateUUID();
-        localStorage.setItem('session_id', id);
-      }
+      if (!id) { id = generateUUID(); localStorage.setItem('session_id', id); }
       return id;
     }
     return generateUUID();
   });
 
-  // フォーカストラップ: モーダル内でフォーカスを閉じ込める
   const handleModalKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape') {
-      return;
-    }
-
+    if (e.key === 'Escape') return;
     if (e.key === 'Tab' && modalRef.current) {
-      const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
-        'input, button, [tabindex]:not([tabindex="-1"])'
-      );
-      const firstElement = focusableElements[0];
-      const lastElement = focusableElements[focusableElements.length - 1];
-
-      if (e.shiftKey) {
-        if (document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        }
-      } else {
-        if (document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
+      const els = modalRef.current.querySelectorAll<HTMLElement>('input, button, [tabindex]:not([tabindex="-1"])');
+      const first = els[0]; const last = els[els.length - 1];
+      if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
+      else { if (document.activeElement === last) { e.preventDefault(); first.focus(); } }
     }
   }, []);
 
-  // モーダル表示時にフォーカスを設定
-  useEffect(() => {
-    if (showConsentModal && consentButtonRef.current) {
-      consentButtonRef.current.focus();
-    }
-  }, [showConsentModal]);
+  useEffect(() => { if (showConsentModal && consentButtonRef.current) consentButtonRef.current.focus(); }, [showConsentModal]);
 
   useEffect(() => {
     const fetchSurvey = async () => {
-      try {
-        const data = await surveyAPI.getByToken(token);
-        setSurvey(data);
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'アンケートが見つかりません');
-      } finally {
-        setLoading(false);
-      }
+      try { const data = await surveyAPI.getByToken(token); setSurvey(data); }
+      catch (err: any) { setError(err.response?.data?.error || 'アンケートが見つかりません'); }
+      finally { setLoading(false); }
     };
-
-    if (token) {
-      fetchSurvey();
-    }
+    if (token) fetchSurvey();
   }, [token]);
 
   const handleAnswerChange = (questionId: number, value: number | number[] | string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: value,
-    }));
-    // 入力時にそのフィールドのバリデーションエラーをクリア
-    setValidationErrors((prev) => {
-      const { [questionId]: _, ...rest } = prev;
-      return rest;
-    });
+    setAnswers((prev) => ({ ...prev, [questionId]: value }));
+    setValidationErrors((prev) => { const { [questionId]: _, ...rest } = prev; return rest; });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
-
-    // 必須質問のバリデーション
     const errors: Record<number, string> = {};
     for (const question of survey?.questions || []) {
       if (question.is_required) {
         const answer = answers[question.id];
-        if (
-          answer === undefined ||
-          answer === null ||
-          answer === '' ||
-          (Array.isArray(answer) && answer.length === 0)
-        ) {
+        if (answer === undefined || answer === null || answer === '' || (Array.isArray(answer) && answer.length === 0))
           errors[question.id] = `「${question.question_text}」は必須です`;
-        }
       }
     }
-
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
-      // 最初のエラー箇所までスクロール
-      const firstErrorId = Object.keys(errors)[0];
-      const element = document.getElementById(`question-${firstErrorId}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      const el = document.getElementById(`question-${Object.keys(errors)[0]}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-
     setSubmitting(true);
-
     try {
-      const questionIds = survey?.questions.map((q) => q.id) || [];
-
-      if (!survey) {
-        setSubmitError('アンケートが見つかりません');
-        setSubmitting(false);
-        return;
-      }
-
+      if (!survey) { setSubmitError('アンケートが見つかりません'); setSubmitting(false); return; }
+      const questionIds = survey.questions.map((q) => q.id);
       for (const questionId of questionIds) {
-        const answer = answers[questionId];
-        if (!answer) continue;
-
-        const question = survey.questions.find((q) => q.id === questionId);
-        if (!question) continue;
-
+        const answer = answers[questionId]; if (!answer) continue;
+        const question = survey.questions.find((q) => q.id === questionId); if (!question) continue;
         if (question.question_type === 'text') {
-          await voteAPI.submit(
-            {
-              survey_token: token,
-              question_id: questionId,
-              answer_text: answer,
-            },
-            sessionId
-          );
+          await voteAPI.submit({ survey_token: token, question_id: questionId, answer_text: answer }, sessionId);
         } else if (Array.isArray(answer)) {
-          // 複数選択
-          for (const optionId of answer) {
-            await voteAPI.submit(
-              {
-                survey_token: token,
-                question_id: questionId,
-                option_id: optionId,
-              },
-              sessionId
-            );
-          }
+          for (const optionId of answer) await voteAPI.submit({ survey_token: token, question_id: questionId, option_id: optionId }, sessionId);
         } else {
-          // 単一選択
-          await voteAPI.submit(
-            {
-              survey_token: token,
-              question_id: questionId,
-              option_id: answer,
-            },
-            sessionId
-          );
+          await voteAPI.submit({ survey_token: token, question_id: questionId, option_id: answer }, sessionId);
         }
       }
-
       setSubmitted(true);
-    } catch (err: any) {
-      setSubmitError(err.response?.data?.error || '投票の送信に失敗しました');
-    } finally {
-      setSubmitting(false);
-    }
+    } catch (err: any) { setSubmitError(err.response?.data?.error || '投票の送信に失敗しました'); }
+    finally { setSubmitting(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center" role="status" aria-label="読み込み中">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
-        </div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <div className="text-center" role="status" aria-label="読み込み中">
+        <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto" />
+        <p className="mt-3 text-sm text-slate-500">読み込み中...</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 text-xl mb-4">{error}</p>
+  if (error) return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/30 px-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-8 max-w-sm w-full text-center">
+        <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
         </div>
+        <p className="text-slate-700">{error}</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (submitted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
-        <div className="text-center bg-white p-8 rounded-lg shadow-lg">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">投票ありがとうございました</h2>
-          <p className="text-gray-600 leading-relaxed">ご回答いただき、ありがとうございます。</p>
+  if (submitted) return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/30 px-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-8 max-w-sm w-full text-center animate-fade-in">
+        <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
         </div>
+        <h2 className="text-lg font-bold text-slate-800 mb-1">投票ありがとうございました</h2>
+        <p className="text-sm text-slate-500">ご回答いただき、ありがとうございます。</p>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <>
-      {/* 同意確認モーダル */}
       {showConsentModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="consent-title"
-          onKeyDown={handleModalKeyDown}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowConsentModal(false);
-            }
-          }}
-        >
-          <div
-            ref={modalRef}
-            className="bg-white rounded-lg shadow-xl p-8 max-w-md mx-4 overflow-y-auto max-h-[90vh]"
-          >
-            <h2 id="consent-title" className="text-2xl font-bold text-gray-900 mb-4">投票に関する確認</h2>
-            <p className="text-gray-700 mb-6 leading-relaxed">
-              この投票は誰かに強制されたものではありません
-            </p>
-            <label className="flex items-center mb-6 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={consentChecked}
-                onChange={(e) => setConsentChecked(e.target.checked)}
-                className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <span className="ml-3 text-gray-700">
-                上記の内容に同意します
-              </span>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-4" role="dialog" aria-modal="true" aria-labelledby="consent-title" onKeyDown={handleModalKeyDown} onClick={(e) => { if (e.target === e.currentTarget) setShowConsentModal(false); }}>
+          <div ref={modalRef} className="bg-white rounded-2xl shadow-xl p-7 max-w-md w-full animate-fade-in">
+            <h2 id="consent-title" className="text-lg font-bold text-slate-800 mb-3">投票に関する確認</h2>
+            <p className="text-sm text-slate-600 mb-5 leading-relaxed">この投票は誰かに強制されたものではありません</p>
+            <label className="flex items-center mb-5 cursor-pointer">
+              <input type="checkbox" checked={consentChecked} onChange={(e) => setConsentChecked(e.target.checked)} className="w-4 h-4 text-primary-600 border-slate-300 rounded" />
+              <span className="ml-2.5 text-sm text-slate-700">上記の内容に同意します</span>
             </label>
             <div className="flex justify-end">
-              <button
-                ref={consentButtonRef}
-                onClick={() => {
-                  if (consentChecked) {
-                    setShowConsentModal(false);
-                  }
-                }}
-                disabled={!consentChecked}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 cursor-pointer transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
+              <button ref={consentButtonRef} onClick={() => { if (consentChecked) setShowConsentModal(false); }} disabled={!consentChecked} className="px-5 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer transition-colors">
                 次へ
               </button>
             </div>
@@ -303,99 +161,73 @@ export default function VotePage() {
         </div>
       )}
 
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <h1 className="text-xl font-bold text-gray-900 mb-4">{survey?.title}</h1>
-            {survey?.description && (
-              <p className="text-gray-600 mb-8 leading-relaxed">{survey.description}</p>
-            )}
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 py-10 px-4">
+        <div className="max-w-2xl mx-auto animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-7 sm:p-8">
+            <div className="text-center mb-8">
+              <h1 className="text-xl font-bold text-slate-800">{survey?.title}</h1>
+              {survey?.description && <p className="text-sm text-slate-500 mt-2 leading-relaxed">{survey.description}</p>}
+              <div className="w-12 h-0.5 bg-primary-400 rounded-full mx-auto mt-4" />
+            </div>
 
-            <form onSubmit={handleSubmit}>
-            {survey?.questions.map((question, index) => (
-              <div key={question.id} id={`question-${question.id}`} className="mb-8">
-                <label
-                  htmlFor={question.question_type === 'text' ? `answer-${question.id}` : undefined}
-                  className="block text-lg font-semibold text-gray-900 mb-3"
-                >
-                  {index + 1}. {question.question_text}
-                  {question.is_required && (
-                    <span className="text-red-500 ml-1">*</span>
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {survey?.questions.map((question, index) => (
+                <div key={question.id} id={`question-${question.id}`}>
+                  <label htmlFor={question.question_type === 'text' ? `answer-${question.id}` : undefined} className="flex items-start gap-3 mb-3">
+                    <span className="inline-flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 rounded-full text-xs font-bold shrink-0 mt-0.5">{index + 1}</span>
+                    <span className="text-sm font-semibold text-slate-800 leading-relaxed">
+                      {question.question_text}
+                      {question.is_required && <span className="text-red-500 ml-1">*</span>}
+                    </span>
+                  </label>
+
+                  {question.question_type === 'text' ? (
+                    <textarea id={`answer-${question.id}`} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm resize-none" rows={4} value={(answers[question.id] as string) || ''} onChange={(e) => handleAnswerChange(question.id, e.target.value)} />
+                  ) : question.question_type === 'multiple_choice' ? (
+                    <div className="space-y-2 ml-9">
+                      {question.options?.map((option) => {
+                        const checked = ((answers[question.id] as number[]) || []).includes(option.id);
+                        return (
+                          <label key={option.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-150 ${checked ? 'border-primary-300 bg-primary-50/50' : 'border-slate-200 hover:border-slate-300'}`}>
+                            <input type="checkbox" className="w-4 h-4 text-primary-600 rounded border-slate-300" checked={checked} onChange={(e) => {
+                              const current = (answers[question.id] as number[]) || [];
+                              handleAnswerChange(question.id, e.target.checked ? [...current, option.id] : current.filter((id) => id !== option.id));
+                            }} />
+                            <span className="text-sm text-slate-700">{option.option_text}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 ml-9">
+                      {question.options?.map((option) => {
+                        const selected = (answers[question.id] as number) === option.id;
+                        return (
+                          <label key={option.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-150 ${selected ? 'border-primary-300 bg-primary-50/50' : 'border-slate-200 hover:border-slate-300'}`}>
+                            <input type="radio" name={`question-${question.id}`} className="w-4 h-4 text-primary-600 border-slate-300" value={option.id} checked={selected} onChange={(e) => handleAnswerChange(question.id, parseInt(e.target.value))} />
+                            <span className="text-sm text-slate-700">{option.option_text}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   )}
-                </label>
+                  {validationErrors[question.id] && <p className="mt-2 ml-9 text-xs text-red-600" role="alert">{validationErrors[question.id]}</p>}
+                </div>
+              ))}
 
-                {question.question_type === 'text' ? (
-                  <textarea
-                    id={`answer-${question.id}`}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows={4}
-                    value={(answers[question.id] as string) || ''}
-                    onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                  />
-                ) : question.question_type === 'multiple_choice' ? (
-                  <div className="space-y-2">
-                    {question.options?.map((option) => (
-                      <label key={option.id} className="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="mr-3"
-                          checked={(answers[question.id] as number[])?.includes(option.id) || false}
-                          onChange={(e) => {
-                            const current = (answers[question.id] as number[]) || [];
-                            if (e.target.checked) {
-                              handleAnswerChange(question.id, [...current, option.id]);
-                            } else {
-                              handleAnswerChange(question.id, current.filter((id) => id !== option.id));
-                            }
-                          }}
-                        />
-                        <span>{option.option_text}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {question.options?.map((option) => (
-                      <label key={option.id} className="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <input
-                          type="radio"
-                          name={`question-${question.id}`}
-                          className="mr-3"
-                          value={option.id}
-                          checked={(answers[question.id] as number) === option.id}
-                          onChange={(e) => handleAnswerChange(question.id, parseInt(e.target.value))}
-                        />
-                        <span>{option.option_text}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
+              {submitError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3" role="alert">
+                  <p className="text-sm text-red-600">{submitError}</p>
+                </div>
+              )}
 
-                {validationErrors[question.id] && (
-                  <p className="mt-2 text-sm text-red-600" role="alert">
-                    {validationErrors[question.id]}
-                  </p>
-                )}
-              </div>
-            ))}
-
-            {submitError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg" role="alert">
-                <p className="text-sm text-red-600">{submitError}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 cursor-pointer transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              {submitting ? '送信中...' : '投票する'}
-            </button>
-          </form>
+              <button type="submit" disabled={submitting} className="w-full py-3 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer transition-colors">
+                {submitting ? '送信中...' : '投票する'}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
     </>
   );
 }
