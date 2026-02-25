@@ -20,6 +20,7 @@ import { setIO } from './routes/votes';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
 const httpServer = createServer(app);
 // CORS用のオリジンリスト（FRONTEND_URLはカンマ区切りで複数指定可）
 const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
