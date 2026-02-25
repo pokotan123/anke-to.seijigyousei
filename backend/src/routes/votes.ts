@@ -2,6 +2,7 @@ import express from 'express';
 import { Server } from 'socket.io';
 import { VoteModel } from '../models/Vote';
 import { SurveyModel } from '../models/Survey';
+import { VoterModel } from '../models/Voter';
 import { QuestionModel } from '../models/Question';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { redisClient } from '../database/redis';
@@ -47,6 +48,32 @@ router.post('/', async (req, res): Promise<void> => {
     if (!isPublished) {
       res.status(403).json({ error: 'Survey is not available' });
       return;
+    }
+
+    // === メール認証投票: voter_token 検証 ===
+    const requireRegistration = (survey as any).require_registration;
+    if (requireRegistration) {
+      const voterToken = sanitizedBody.voter_token;
+      if (!voterToken) {
+        res.status(403).json({ error: 'この投票にはメール認証が必要です' });
+        return;
+      }
+
+      const voter = await VoterModel.findByToken(voterToken);
+      if (!voter) {
+        res.status(404).json({ error: '無効な投票リンクです' });
+        return;
+      }
+
+      if (voter.survey_id !== survey.id) {
+        res.status(403).json({ error: '無効な投票リンクです' });
+        return;
+      }
+
+      if (voter.status === 'voted') {
+        res.status(403).json({ error: '既に投票済みです' });
+        return;
+      }
     }
 
     // 質問取得
@@ -96,6 +123,11 @@ router.post('/', async (req, res): Promise<void> => {
     // Socket.ioでリアルタイム通知
     if (ioInstance) {
       await broadcastVoteUpdate(ioInstance, survey.id, question_id);
+    }
+
+    // メール認証投票: voter の status を 'voted' に更新
+    if (requireRegistration && sanitizedBody.voter_token) {
+      await VoterModel.markAsVotedByToken(sanitizedBody.voter_token);
     }
 
     res.status(201).json({

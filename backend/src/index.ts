@@ -13,6 +13,7 @@ import surveyRoutes from './routes/surveys';
 import questionRoutes from './routes/questions';
 import voteRoutes from './routes/votes';
 import analyticsRoutes from './routes/analytics';
+import voterRoutes from './routes/voters';
 import { setupSocketIO } from './socket';
 import { setIO } from './routes/votes';
 
@@ -75,6 +76,7 @@ app.use('/api/v1/surveys', surveyRoutes);
 app.use('/api/v1/questions', questionRoutes);
 app.use('/api/v1/votes', voteRoutes);
 app.use('/api/v1/admin/analytics', analyticsRoutes);
+app.use('/api/v1/voters', voterRoutes);
 
 // Socket.io設定
 setupSocketIO(io);
@@ -95,6 +97,7 @@ app.get('/', (_req, res) => {
         questions: '/api/v1/questions',
         votes: '/api/v1/votes',
         analytics: '/api/v1/admin/analytics',
+        voters: '/api/v1/voters',
       },
     },
     documentation: 'This is the backend API server. Please use the frontend application to access the system.',

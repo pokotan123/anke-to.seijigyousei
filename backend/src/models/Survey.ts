@@ -9,6 +9,10 @@ export interface Survey {
   status: 'draft' | 'published' | 'closed';
   start_date: Date | null;
   end_date: Date | null;
+  require_registration: boolean;
+  registration_message: string | null;
+  registration_deadline: Date | null;
+  registration_fields: any[] | null;
   created_at: Date;
   updated_at: Date;
   created_by: number;
@@ -21,6 +25,10 @@ export interface CreateSurveyInput {
   start_date?: Date;
   end_date?: Date;
   created_by: number;
+  require_registration?: boolean;
+  registration_message?: string;
+  registration_deadline?: Date;
+  registration_fields?: any[];
 }
 
 export interface UpdateSurveyInput {
@@ -29,14 +37,18 @@ export interface UpdateSurveyInput {
   status?: 'draft' | 'published' | 'closed';
   start_date?: Date;
   end_date?: Date;
+  require_registration?: boolean;
+  registration_message?: string;
+  registration_deadline?: Date;
+  registration_fields?: any[];
 }
 
 export class SurveyModel {
   static async create(input: CreateSurveyInput): Promise<Survey> {
     const uniqueToken = this.generateUniqueToken();
     const query = `
-      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by, require_registration, registration_message, registration_deadline, registration_fields)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
     `;
     const values = [
@@ -47,8 +59,12 @@ export class SurveyModel {
       input.start_date || null,
       input.end_date || null,
       input.created_by,
+      input.require_registration || false,
+      input.registration_message || null,
+      input.registration_deadline || null,
+      input.registration_fields ? JSON.stringify(input.registration_fields) : '[]',
     ];
-    
+
     const result = await pool.query(query, values);
     return result.rows[0];
   }
@@ -68,12 +84,12 @@ export class SurveyModel {
   static async findAll(createdBy?: number): Promise<Survey[]> {
     let query = 'SELECT * FROM surveys';
     const values: any[] = [];
-    
+
     if (createdBy) {
       query += ' WHERE created_by = $1';
       values.push(createdBy);
     }
-    
+
     query += ' ORDER BY created_at DESC';
     const result = await pool.query(query, values);
     return result.rows;
@@ -103,6 +119,22 @@ export class SurveyModel {
     if (input.end_date !== undefined) {
       fields.push(`end_date = $${paramCount++}`);
       values.push(input.end_date);
+    }
+    if (input.require_registration !== undefined) {
+      fields.push(`require_registration = $${paramCount++}`);
+      values.push(input.require_registration);
+    }
+    if (input.registration_message !== undefined) {
+      fields.push(`registration_message = $${paramCount++}`);
+      values.push(input.registration_message);
+    }
+    if (input.registration_deadline !== undefined) {
+      fields.push(`registration_deadline = $${paramCount++}`);
+      values.push(input.registration_deadline);
+    }
+    if (input.registration_fields !== undefined) {
+      fields.push(`registration_fields = $${paramCount++}`);
+      values.push(JSON.stringify(input.registration_fields));
     }
 
     if (fields.length === 0) {
@@ -145,7 +177,7 @@ export class SurveyModel {
     if (survey.status !== 'published') {
       return false;
     }
-    
+
     const now = new Date();
     if (survey.start_date && now < survey.start_date) {
       return false;
@@ -153,7 +185,7 @@ export class SurveyModel {
     if (survey.end_date && now > survey.end_date) {
       return false;
     }
-    
+
     return true;
   }
 
@@ -162,4 +194,3 @@ export class SurveyModel {
     return uuidv4().replace(/-/g, '').substring(0, 12);
   }
 }
-
