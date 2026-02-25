@@ -481,9 +481,18 @@ export default function SurveyEditPage() {
                     value={survey.vote_mail_body || ''}
                     onChange={(e) => setSurvey({ ...survey, vote_mail_body: e.target.value || null })}
                     rows={5}
-                    placeholder="例: ○○アンケートへの投票をお願いいたします。下記のボタンから投票画面にお進みください。"
+                    placeholder={'例: {survey_title}への投票をお願いいたします。\n{email} 様、下記のボタンから投票画面にお進みください。\n投票期限: {end_date}'}
                     className={`${inputClass} resize-none leading-relaxed`}
                   />
+                  <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <p className="text-xs font-medium text-slate-500 mb-1.5">利用可能なタグ</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                      <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'survey_title'}</code> アンケート名</p>
+                      <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'email'}</code> 投票者のメールアドレス</p>
+                      <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'end_date'}</code> 投票期限日時</p>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1.5">※ 投票ボタンはメール末尾に自動挿入されます</p>
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="reminderMailBody" className={labelClass}>リマインドメール本文</label>
@@ -492,9 +501,18 @@ export default function SurveyEditPage() {
                     value={survey.reminder_mail_body || ''}
                     onChange={(e) => setSurvey({ ...survey, reminder_mail_body: e.target.value || null })}
                     rows={5}
-                    placeholder="例: まだ投票がお済みでないようです。期限までに投票をお願いいたします。"
+                    placeholder={'例: {email} 様、{survey_title}の投票がまだお済みでないようです。\n期限({end_date})までに投票をお願いいたします。'}
                     className={`${inputClass} resize-none leading-relaxed`}
                   />
+                  <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <p className="text-xs font-medium text-slate-500 mb-1.5">利用可能なタグ</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                      <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'survey_title'}</code> アンケート名</p>
+                      <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'email'}</code> 投票者のメールアドレス</p>
+                      <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'end_date'}</code> 投票期限日時</p>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1.5">※ 投票ボタンはメール末尾に自動挿入されます</p>
+                  </div>
                 </div>
               </>
             ) : (
@@ -505,9 +523,17 @@ export default function SurveyEditPage() {
                   value={survey.registration_mail_body || ''}
                   onChange={(e) => setSurvey({ ...survey, registration_mail_body: e.target.value || null })}
                   rows={5}
-                  placeholder="例: ご登録ありがとうございます。投票リンクは後日メールでお届けします。"
+                  placeholder={'例: {email} 様、{survey_title}への登録が完了しました。\n{voting_survey_title}の投票リンクは後日お届けします。'}
                   className={`${inputClass} resize-none leading-relaxed`}
                 />
+                <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <p className="text-xs font-medium text-slate-500 mb-1.5">利用可能なタグ</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                    <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'survey_title'}</code> 登録アンケート名</p>
+                    <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'email'}</code> 登録者のメールアドレス</p>
+                    <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'voting_survey_title'}</code> 投票アンケート名</p>
+                  </div>
+                </div>
               </div>
             )}
           </div>

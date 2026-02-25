@@ -122,14 +122,30 @@ function buildRegistrationConfirmationHtml(params: SendRegistrationConfirmationP
   `;
 }
 
-function buildCustomBodyHtml(body: string, actionUrl?: string, actionLabel?: string): string {
+interface TagValues {
+  survey_title?: string;
+  email?: string;
+  end_date?: string;
+  voting_survey_title?: string;
+}
+
+function replaceTemplateTags(text: string, tags: TagValues): string {
+  return text
+    .replace(/\{survey_title\}/g, tags.survey_title || '')
+    .replace(/\{email\}/g, tags.email || '')
+    .replace(/\{end_date\}/g, tags.end_date || '')
+    .replace(/\{voting_survey_title\}/g, tags.voting_survey_title || '');
+}
+
+function buildCustomBodyHtml(body: string, tags: TagValues, actionUrl?: string, actionLabel?: string): string {
+  const replaced = replaceTemplateTags(body, tags);
   const actionButton = actionUrl && actionLabel
     ? `<p><a href="${actionUrl}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px;">${escapeHtml(actionLabel)}</a></p>`
     : '';
 
   return `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-      ${escapeHtml(body).replace(/\n/g, '<br />')}
+      ${escapeHtml(replaced).replace(/\n/g, '<br />')}
       ${actionButton}
       <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
       <p style="color: #94a3b8; font-size: 12px;">※このメールは自動送信です。</p>
@@ -142,7 +158,7 @@ export class MailService {
     const voteUrl = buildVoteUrl(params.voterToken);
     const endDateStr = formatEndDate(params.endDate);
     const html = params.customBody
-      ? buildCustomBodyHtml(params.customBody, voteUrl, '投票する')
+      ? buildCustomBodyHtml(params.customBody, { survey_title: params.surveyTitle, email: params.email, end_date: endDateStr }, voteUrl, '投票する')
       : buildVoteLinkHtml(params, voteUrl, endDateStr);
 
     try {
@@ -163,7 +179,7 @@ export class MailService {
     const voteUrl = buildVoteUrl(params.voterToken);
     const endDateStr = formatEndDate(params.endDate);
     const html = params.customBody
-      ? buildCustomBodyHtml(params.customBody, voteUrl, '今すぐ投票する')
+      ? buildCustomBodyHtml(params.customBody, { survey_title: params.surveyTitle, email: params.email, end_date: endDateStr }, voteUrl, '今すぐ投票する')
       : buildReminderHtml(params, voteUrl, endDateStr);
 
     try {
@@ -182,7 +198,7 @@ export class MailService {
 
   static async sendRegistrationConfirmation(params: SendRegistrationConfirmationParams): Promise<MailResult> {
     const html = params.customBody
-      ? buildCustomBodyHtml(params.customBody)
+      ? buildCustomBodyHtml(params.customBody, { survey_title: params.surveyTitle, email: params.email, voting_survey_title: params.votingSurveyTitle })
       : buildRegistrationConfirmationHtml(params);
 
     try {
