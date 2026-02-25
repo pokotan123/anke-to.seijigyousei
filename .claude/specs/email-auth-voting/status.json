@@ -1,0 +1,28 @@
+{
+  "feature": "email-auth-voting",
+  "created": "2026-02-25",
+  "total_tasks": 18,
+  "completed": 18,
+  "in_progress": null,
+  "status": "COMPLETE",
+  "tasks": {
+    "01-db-migration": { "status": "completed", "depends_on": [] },
+    "02-voter-model": { "status": "completed", "depends_on": ["01-db-migration"] },
+    "03-mail-service": { "status": "completed", "depends_on": [] },
+    "04-voter-register-api": { "status": "completed", "depends_on": ["02-voter-model"] },
+    "05-voter-verify-api": { "status": "completed", "depends_on": ["02-voter-model"] },
+    "06-vote-api-modify": { "status": "completed", "depends_on": ["02-voter-model", "05-voter-verify-api"] },
+    "07-voter-list-api": { "status": "completed", "depends_on": ["02-voter-model"] },
+    "08-send-remind-api": { "status": "completed", "depends_on": ["02-voter-model", "03-mail-service"] },
+    "09-route-registration": { "status": "completed", "depends_on": ["04-voter-register-api", "05-voter-verify-api", "06-vote-api-modify", "07-voter-list-api", "08-send-remind-api"] },
+    "10-register-page": { "status": "completed", "depends_on": ["04-voter-register-api"] },
+    "11-auth-vote-page": { "status": "completed", "depends_on": ["05-voter-verify-api", "06-vote-api-modify"] },
+    "12-voter-management-page": { "status": "completed", "depends_on": ["07-voter-list-api", "08-send-remind-api"] },
+    "13-survey-form-modify": { "status": "completed", "depends_on": ["01-db-migration"] },
+    "14-api-client": { "status": "completed", "depends_on": [] },
+    "15-e2e-deploy": { "status": "completed", "depends_on": ["09-route-registration", "10-register-page", "11-auth-vote-page", "12-voter-management-page", "13-survey-form-modify", "14-api-client", "16-a11y-interaction", "17-responsive-layout", "18-design-polish"] },
+    "16-a11y-interaction": { "status": "completed", "depends_on": ["10-register-page", "11-auth-vote-page", "12-voter-management-page", "13-survey-form-modify"] },
+    "17-responsive-layout": { "status": "completed", "depends_on": ["10-register-page", "11-auth-vote-page", "12-voter-management-page", "13-survey-form-modify"] },
+    "18-design-polish": { "status": "completed", "depends_on": ["16-a11y-interaction", "17-responsive-layout"] }
+  }
+}
