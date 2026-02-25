@@ -21,9 +21,14 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+// CORS用のオリジンリスト（FRONTEND_URLはカンマ区切りで複数指定可）
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
+  .split(',')
+  .map(url => url.trim());
+
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
   },
 });
@@ -59,7 +64,7 @@ if (!process.env.REDIS_URL && !process.env.REDIS_HOST) {
 // ミドルウェア
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: allowedOrigins,
   credentials: true,
 }));
 app.use(express.json());
