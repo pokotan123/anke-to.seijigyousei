@@ -9,6 +9,7 @@ export interface Survey {
   created_at: string;
   require_registration: boolean;
   registration_message: string;
+  registration_start_date: string | null;
   registration_deadline: string | null;
   registration_fields?: { name: string; required: boolean }[];
   linked_voting_survey_id: number | null;

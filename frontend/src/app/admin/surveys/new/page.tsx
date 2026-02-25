@@ -15,6 +15,7 @@ export default function NewSurveyPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('draft');
+  const [registrationStartDate, setRegistrationStartDate] = useState('');
   const [registrationDeadline, setRegistrationDeadline] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -50,6 +51,7 @@ export default function NewSurveyPage() {
         status,
         start_date: startDate || null,
         end_date: endDate || null,
+        registration_start_date: registrationStartDate || null,
         registration_deadline: registrationDeadline || null,
         require_registration: false,
         registration_message: null,
@@ -138,23 +140,40 @@ export default function NewSurveyPage() {
               </select>
             </div>
 
-            <div>
-              <label htmlFor="registrationDeadline" className={labelClass}>
-                登録締切日
-              </label>
-              <input
-                id="registrationDeadline"
-                type="datetime-local"
-                value={registrationDeadline}
-                onChange={(e) => setRegistrationDeadline(e.target.value)}
-                className={inputClass}
-              />
+            <div className="border-t border-slate-100 pt-5">
+              <h3 className="text-sm font-bold text-slate-800 mb-3">日程設定</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="registrationStartDate" className={labelClass}>
+                    登録開始日時
+                  </label>
+                  <input
+                    id="registrationStartDate"
+                    type="datetime-local"
+                    value={registrationStartDate}
+                    onChange={(e) => setRegistrationStartDate(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="registrationDeadline" className={labelClass}>
+                    登録締切日時
+                  </label>
+                  <input
+                    id="registrationDeadline"
+                    type="datetime-local"
+                    value={registrationDeadline}
+                    onChange={(e) => setRegistrationDeadline(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="startDate" className={labelClass}>
-                  投票開始日
+                  投票開始日時
                 </label>
                 <input
                   id="startDate"
@@ -166,7 +185,7 @@ export default function NewSurveyPage() {
               </div>
               <div>
                 <label htmlFor="endDate" className={labelClass}>
-                  投票終了日
+                  投票終了日時
                 </label>
                 <input
                   id="endDate"

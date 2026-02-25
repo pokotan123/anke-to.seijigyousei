@@ -1,5 +1,14 @@
-import { Pool } from 'pg';
+import { Pool, types } from 'pg';
 import dotenv from 'dotenv';
+
+// TIMESTAMP (OID 1114) をJST ISO文字列で返す
+types.setTypeParser(1114, (val: string) => {
+  if (!val) return null;
+  const utc = new Date(val + 'Z');
+  const jstMs = utc.getTime() + 9 * 60 * 60 * 1000;
+  const jst = new Date(jstMs);
+  return jst.toISOString().replace('Z', '+09:00');
+});
 
 dotenv.config();
 
@@ -62,6 +71,9 @@ export async function connectDatabase() {
           END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surveys' AND column_name='registration_mail_body') THEN
             ALTER TABLE surveys ADD COLUMN registration_mail_body TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surveys' AND column_name='registration_start_date') THEN
+            ALTER TABLE surveys ADD COLUMN registration_start_date TIMESTAMP;
           END IF;
         END $$;
       `);

@@ -44,6 +44,7 @@
 - FR-1.2: `linked_voting_survey_id` が設定されたsurveyは「登録用アンケート」として機能
 - FR-1.3: questionsに `question_type = 'email'` を追加。登録用アンケートに必須1つ
 - FR-1.4: 既存の `require_registration`, `registration_fields`, `registration_message`, `registration_deadline` は残す（登録締切等で使用）
+- FR-1.5: surveysテーブルに `registration_start_date` カラム追加（TIMESTAMP, nullable）。登録受付開始日時を管理
 
 #### FR-2: 登録用アンケート回答フロー
 - FR-2.1: 登録用アンケートの回答は votes テーブルに保存（通常の投票と同じ）
@@ -85,6 +86,11 @@
 - NFR-2.1: バッチ投票は1トランザクションで完了（N+1クエリ回避）
 - NFR-2.2: 登録用アンケート回答 + voter作成も1トランザクション
 
+#### NFR-3: タイムゾーン
+- NFR-3.1: APIレスポンスの全タイムスタンプはJST (UTC+9) ISO 8601形式で返す
+- NFR-3.2: pgの型パーサー（OID 1114 TIMESTAMP）をオーバーライドし、`+09:00` サフィックス付きISO文字列に変換
+- NFR-3.3: フロントエンドの `new Date()` パースとの互換性を維持
+
 ---
 
 ## 4. Technical Design
@@ -94,6 +100,7 @@
 ```sql
 -- surveys テーブル: 新カラム追加
 ALTER TABLE surveys ADD COLUMN linked_voting_survey_id INTEGER REFERENCES surveys(id) ON DELETE SET NULL;
+ALTER TABLE surveys ADD COLUMN registration_start_date TIMESTAMP;
 CREATE INDEX idx_surveys_linked ON surveys(linked_voting_survey_id);
 
 -- questions テーブル: email タイプ追加（question_type は VARCHAR なので値追加のみ）
@@ -180,6 +187,12 @@ Flow:
 - 「登録用アンケートとして設定」UIの追加
 - 投票用アンケートの選択ドロップダウン（linked_voting_survey_id）
 - email質問タイプの追加
+- 投票アンケート編集画面に「日程設定」セクション追加（2x2グリッド）:
+  - 登録開始日時 (registration_start_date) [datetime-local]
+  - 登録締切日時 (registration_deadline) [datetime-local]
+  - 投票開始日時 (start_date) [datetime-local]
+  - 投票終了日時 (end_date) [datetime-local]
+- 新規作成画面にも登録開始日時/登録締切日時を追加
 
 #### /admin/surveys/[id]/voters → 投票者管理（改修）
 - 登録アンケートの回答データ表示
@@ -227,6 +240,16 @@ Flow:
 ### DD-4: survey_type カラムは追加しない
 - **選択**: `linked_voting_survey_id` の有無で登録用/投票用を判定
 - **理由**: 最小限のスキーマ変更。新しいENUM型を追加するよりシンプル
+
+### DD-5: タイムスタンプJST化をpg型パーサーで実装
+- **選択**: `pg` の `types.setTypeParser(1114, ...)` でTIMESTAMP型をJST ISO文字列に変換
+- **理由**: DB層で一括変換することで、全APIレスポンスを自動的にJST化。フロントエンド側の `formatDate` や `new Date()` 呼び出しの変更が不要
+- **トレードオフ**: DB自体のタイムゾーン設定は変更しない（UTC保持）。アプリ層での変換のみ
+
+### DD-6: registration_start_date を独立カラムとして追加
+- **選択**: surveysテーブルに `registration_start_date TIMESTAMP` カラム追加
+- **理由**: start_date（投票開始）/ end_date（投票終了）/ registration_deadline（登録締切）と同レベルの日時情報として、登録受付開始日時を管理する必要がある
+- **トレードオフ**: カラム数が増えるが、各日時の意味が明確になる
 
 ---
 

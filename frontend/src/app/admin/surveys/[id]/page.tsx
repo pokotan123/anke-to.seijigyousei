@@ -11,6 +11,14 @@ import OptionModal from '../../../../components/admin/OptionModal';
 const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800';
 const labelClass = 'block text-sm font-medium text-slate-600 mb-1.5';
 
+function toDatetimeLocal(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 const DEFAULT_VOTE_MAIL_BODY = `{email} 様
 
 「{survey_title}」への投票が可能になりました。
@@ -123,6 +131,7 @@ export default function SurveyEditPage() {
         status: survey.status,
         start_date: survey.start_date,
         end_date: survey.end_date,
+        registration_start_date: survey.registration_start_date,
         require_registration: survey.require_registration,
         registration_message: survey.registration_message,
         registration_deadline: survey.registration_deadline,
@@ -395,6 +404,54 @@ export default function SurveyEditPage() {
                     <option value="closed">終了</option>
                   </select>
                 </div>
+
+                {/* 日程設定 */}
+                <div className="border-t border-slate-100 pt-5">
+                  <h3 className="text-sm font-bold text-slate-700 mb-3">日程設定</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="registrationStartDate" className={labelClass}>登録開始日時</label>
+                      <input
+                        id="registrationStartDate"
+                        type="datetime-local"
+                        value={toDatetimeLocal(survey.registration_start_date)}
+                        onChange={(e) => setSurvey({ ...survey, registration_start_date: e.target.value || null })}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="registrationDeadline" className={labelClass}>登録締切日時</label>
+                      <input
+                        id="registrationDeadline"
+                        type="datetime-local"
+                        value={toDatetimeLocal(survey.registration_deadline)}
+                        onChange={(e) => setSurvey({ ...survey, registration_deadline: e.target.value || null })}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="startDate" className={labelClass}>投票開始日時</label>
+                      <input
+                        id="startDate"
+                        type="datetime-local"
+                        value={toDatetimeLocal(survey.start_date)}
+                        onChange={(e) => setSurvey({ ...survey, start_date: e.target.value || null })}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="endDate" className={labelClass}>投票終了日時</label>
+                      <input
+                        id="endDate"
+                        type="datetime-local"
+                        value={toDatetimeLocal(survey.end_date)}
+                        onChange={(e) => setSurvey({ ...survey, end_date: e.target.value || null })}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label htmlFor="description" className={labelClass}>説明</label>
                   <textarea

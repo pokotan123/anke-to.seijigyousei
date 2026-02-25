@@ -1,5 +1,20 @@
 # CHANGELOG: Two-Survey Voting
 
+## 2026-02-25 - 日時設定UI追加 + APIタイムスタンプJST化
+
+- **What**:
+  - surveys テーブルに `registration_start_date TIMESTAMP` カラム追加
+  - 投票アンケート編集画面に日程設定セクション追加（登録開始/登録締切/投票開始/投票終了の4つの datetime-local 入力）
+  - 新規作成画面にも登録開始日時を追加
+  - pg 型パーサーオーバーライドで全タイムスタンプを JST (+09:00) ISO文字列に変換
+- **Why**: ユーザーからの2つのリクエスト: (1)編集画面に日時入力UIがない (2)APIが全タイムスタンプをUTCで返しており分かりにくい
+- **Impact**:
+  - PRD: FR-1.5, NFR-3, DD-5, DD-6, Section 4.1, 4.3 を追記更新
+  - 完了済みタスク Task 01, 02, 10 に影響するが、実装は同時に完了済み
+- **Decision**: pg型パーサーでDB層一括変換（フロントエンド変更最小化）、registration_start_date は独立カラムとして追加
+
+---
+
 ## 2025-02-25: Task 01-11 実装完了
 
 ### 実装内容

@@ -82,6 +82,12 @@ router.post('/register', registerRateLimit, async (req, res): Promise<void> => {
       return;
     }
 
+    // 登録開始日チェック
+    if (survey.registration_start_date && new Date() < new Date(survey.registration_start_date)) {
+      res.status(403).json({ error: '登録受付はまだ開始されていません' });
+      return;
+    }
+
     // 登録締め切りチェック
     if (survey.registration_deadline && new Date() > new Date(survey.registration_deadline)) {
       res.status(403).json({ error: '登録受付は終了しました' });

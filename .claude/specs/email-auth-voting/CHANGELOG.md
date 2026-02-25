@@ -1,5 +1,11 @@
 # CHANGELOG: メール認証投票機能
 
+## 2026-02-25 — APIタイムスタンプJST化 + registration_start_date追加
+- pg型パーサー(OID 1114)オーバーライドで全TIMESTAMP値をJST ISO文字列(+09:00)に変換
+- surveys テーブルに `registration_start_date TIMESTAMP` カラム追加（自動マイグレーション対応）
+- Survey model interface / create / update に registration_start_date 追加
+- 関連PRD: two-survey-voting/PRD.md に仕様追記済み
+
 ## 2026-02-25 — Task 15 E2Eテスト・デプロイ準備 完了 → 全18タスク完了
 - Playwright E2Eテスト4ファイル43テスト作成（従来フロー、メール認証フロー、管理画面、a11y）
 - playwright.config.ts作成（chromium + mobile プロジェクト）

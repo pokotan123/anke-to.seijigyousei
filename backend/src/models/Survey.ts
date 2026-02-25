@@ -11,6 +11,7 @@ export interface Survey {
   end_date: Date | null;
   require_registration: boolean;
   registration_message: string | null;
+  registration_start_date: Date | null;
   registration_deadline: Date | null;
   registration_fields: any[] | null;
   linked_voting_survey_id: number | null;
@@ -31,6 +32,7 @@ export interface CreateSurveyInput {
   created_by: number;
   require_registration?: boolean;
   registration_message?: string;
+  registration_start_date?: Date;
   registration_deadline?: Date;
   registration_fields?: any[];
   linked_voting_survey_id?: number | null;
@@ -43,11 +45,12 @@ export interface UpdateSurveyInput {
   title?: string;
   description?: string;
   status?: 'draft' | 'published' | 'closed';
-  start_date?: Date;
-  end_date?: Date;
+  start_date?: Date | null;
+  end_date?: Date | null;
   require_registration?: boolean;
   registration_message?: string;
-  registration_deadline?: Date;
+  registration_start_date?: Date | null;
+  registration_deadline?: Date | null;
   registration_fields?: any[];
   linked_voting_survey_id?: number | null;
   vote_mail_body?: string;
@@ -59,8 +62,8 @@ export class SurveyModel {
   static async create(input: CreateSurveyInput): Promise<Survey> {
     const uniqueToken = this.generateUniqueToken();
     const query = `
-      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by, require_registration, registration_message, registration_deadline, registration_fields, linked_voting_survey_id, vote_mail_body, reminder_mail_body, registration_mail_body)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by, require_registration, registration_message, registration_start_date, registration_deadline, registration_fields, linked_voting_survey_id, vote_mail_body, reminder_mail_body, registration_mail_body)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `;
     const values = [
@@ -73,6 +76,7 @@ export class SurveyModel {
       input.created_by,
       input.require_registration || false,
       input.registration_message || null,
+      input.registration_start_date || null,
       input.registration_deadline || null,
       input.registration_fields ? JSON.stringify(input.registration_fields) : '[]',
       input.linked_voting_survey_id || null,
@@ -143,6 +147,10 @@ export class SurveyModel {
     if (input.registration_message !== undefined) {
       fields.push(`registration_message = $${paramCount++}`);
       values.push(input.registration_message);
+    }
+    if (input.registration_start_date !== undefined) {
+      fields.push(`registration_start_date = $${paramCount++}`);
+      values.push(input.registration_start_date);
     }
     if (input.registration_deadline !== undefined) {
       fields.push(`registration_deadline = $${paramCount++}`);
@@ -223,10 +231,10 @@ export class SurveyModel {
     }
 
     const now = new Date();
-    if (survey.start_date && now < survey.start_date) {
+    if (survey.start_date && now < new Date(survey.start_date)) {
       return false;
     }
-    if (survey.end_date && now > survey.end_date) {
+    if (survey.end_date && now > new Date(survey.end_date)) {
       return false;
     }
 

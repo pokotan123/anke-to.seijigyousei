@@ -101,7 +101,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // 管理API: アンケート作成
 router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) => {
   try {
-    const { title, description, status, start_date, end_date, linked_voting_survey_id, vote_mail_body, reminder_mail_body, registration_mail_body } = req.body;
+    const { title, description, status, start_date, end_date, registration_start_date, linked_voting_survey_id, vote_mail_body, reminder_mail_body, registration_mail_body } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
@@ -117,6 +117,7 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) 
       status,
       start_date: start_date ? new Date(start_date) : undefined,
       end_date: end_date ? new Date(end_date) : undefined,
+      registration_start_date: registration_start_date ? new Date(registration_start_date) : undefined,
       created_by: req.user.id,
       linked_voting_survey_id: linked_voting_survey_id || null,
       vote_mail_body: vote_mail_body || null,
@@ -135,14 +136,19 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) 
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { title, description, status, start_date, end_date, linked_voting_survey_id, vote_mail_body, reminder_mail_body, registration_mail_body } = req.body;
+    const { title, description, status, start_date, end_date, registration_start_date, registration_deadline, require_registration, registration_message, registration_fields, linked_voting_survey_id, vote_mail_body, reminder_mail_body, registration_mail_body } = req.body;
 
     const survey = await SurveyModel.update(id, {
       title,
       description,
       status,
-      start_date: start_date ? new Date(start_date) : undefined,
-      end_date: end_date ? new Date(end_date) : undefined,
+      start_date: 'start_date' in req.body ? (start_date ? new Date(start_date) : null) : undefined,
+      end_date: 'end_date' in req.body ? (end_date ? new Date(end_date) : null) : undefined,
+      registration_start_date: 'registration_start_date' in req.body ? (registration_start_date ? new Date(registration_start_date) : null) : undefined,
+      registration_deadline: 'registration_deadline' in req.body ? (registration_deadline ? new Date(registration_deadline) : null) : undefined,
+      require_registration,
+      registration_message,
+      registration_fields,
       linked_voting_survey_id,
       vote_mail_body,
       reminder_mail_body,
