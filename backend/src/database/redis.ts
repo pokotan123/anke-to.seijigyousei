@@ -100,7 +100,9 @@ export async function connectRedis() {
     console.error('  3. 値が ${{Redis.REDIS_URL}} または ${{Redis.REDIS_HOST}} の形式か確認');
     console.error('  4. Redisサービスの名前が正確か確認');
     console.error('  5. Redisサービスが起動しているか確認（緑色のインジケーター）');
-    throw error;
+    console.warn('⚠️  Redis接続に失敗しました。Redisなしで続行します。');
+    redisClient = null;
+    return null;
   }
 }
 
