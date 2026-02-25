@@ -105,28 +105,28 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
+      <nav className="bg-white shadow" aria-label="管理メニュー">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900">管理画面</h1>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center flex-wrap space-x-4">
               <Link
                 href="/admin/analytics"
-                className="text-blue-600 hover:text-blue-800"
+                className="text-blue-600 hover:text-blue-800 transition-colors duration-200 py-2"
               >
                 分析ダッシュボード
               </Link>
               <Link
                 href="/admin/votes"
-                className="text-blue-600 hover:text-blue-800"
+                className="text-blue-600 hover:text-blue-800 transition-colors duration-200 py-2"
               >
                 投票データ
               </Link>
               <button
                 onClick={handleLogout}
-                className="text-gray-600 hover:text-gray-800"
+                className="text-gray-600 hover:text-gray-800 cursor-pointer transition-colors duration-200 py-2"
               >
                 ログアウト
               </button>
@@ -141,28 +141,41 @@ export default function DashboardPage() {
             <h2 className="text-2xl font-bold text-gray-900">アンケート一覧</h2>
             <Link
               href="/admin/surveys/new"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
             >
               新規作成
             </Link>
           </div>
 
+          {surveys.length === 0 && (
+            <div className="text-center py-12">
+              <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-gray-500 mb-4 leading-relaxed">アンケートがありません</p>
+              <button onClick={() => router.push('/admin/surveys/new')} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors duration-200">
+                最初のアンケートを作成
+              </button>
+            </div>
+          )}
+
+          {surveys.length > 0 && (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <ul className="divide-y divide-gray-200">
               {surveys.map((survey) => (
                 <li key={survey.id}>
-                  <div className="px-4 py-4 sm:px-6 hover:bg-gray-50">
+                  <div className="px-4 py-4 sm:px-6 hover:bg-gray-50 transition-colors duration-200">
                     <div className="flex items-center justify-between">
                       <Link href={`/admin/surveys/${survey.id}`} className="flex-1">
                         <div>
                           <h3 className="text-lg font-medium text-gray-900">
                             {survey.title}
                           </h3>
-                          <p className="mt-1 text-sm text-gray-500">
-                            ステータス: {survey.status} | 
+                          <p className="mt-1 text-sm text-gray-500 leading-relaxed">
+                            ステータス: {survey.status} |
                             トークン: {survey.unique_token}
                           </p>
-                          <p className="mt-1 text-sm text-gray-500">
+                          <p className="mt-1 text-sm text-gray-500 leading-relaxed break-all">
                             投票URL: {typeof window !== 'undefined' && `${window.location.origin}/vote/${survey.unique_token}`}
                           </p>
                         </div>
@@ -173,14 +186,14 @@ export default function DashboardPage() {
                         </span>
                         <button
                           onClick={(e) => handleExportCSV(survey.id, survey.title, e)}
-                          className="px-3 py-1 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded border border-green-300 transition"
+                          className="px-3 py-2 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded border border-green-300 cursor-pointer transition-colors duration-200"
                           title="CSVダウンロード"
                         >
                           CSV
                         </button>
                         <button
                           onClick={(e) => handleDelete(survey.id, survey.title, e)}
-                          className="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded border border-red-300 transition"
+                          className="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded border border-red-300 cursor-pointer transition-colors duration-200"
                           title="削除"
                         >
                           削除
@@ -192,6 +205,8 @@ export default function DashboardPage() {
               ))}
             </ul>
           </div>
+          )}
+
         </div>
       </main>
     </div>

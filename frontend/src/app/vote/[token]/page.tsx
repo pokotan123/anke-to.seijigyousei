@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { surveyAPI, voteAPI } from '../../../lib/api';
 // UUID生成の簡易実装（本番環境ではuuidライブラリを使用）
@@ -43,6 +43,10 @@ export default function VotePage() {
   const [submitted, setSubmitted] = useState(false);
   const [showConsentModal, setShowConsentModal] = useState(true);
   const [consentChecked, setConsentChecked] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<number, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const consentButtonRef = useRef<HTMLButtonElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const [sessionId] = useState(() => {
     if (typeof window !== 'undefined') {
       let id = localStorage.getItem('session_id');
@@ -54,6 +58,40 @@ export default function VotePage() {
     }
     return generateUUID();
   });
+
+  // フォーカストラップ: モーダル内でフォーカスを閉じ込める
+  const handleModalKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      return;
+    }
+
+    if (e.key === 'Tab' && modalRef.current) {
+      const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
+        'input, button, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      }
+    }
+  }, []);
+
+  // モーダル表示時にフォーカスを設定
+  useEffect(() => {
+    if (showConsentModal && consentButtonRef.current) {
+      consentButtonRef.current.focus();
+    }
+  }, [showConsentModal]);
 
   useEffect(() => {
     const fetchSurvey = async () => {
@@ -77,27 +115,51 @@ export default function VotePage() {
       ...prev,
       [questionId]: value,
     }));
+    // 入力時にそのフィールドのバリデーションエラーをクリア
+    setValidationErrors((prev) => {
+      const { [questionId]: _, ...rest } = prev;
+      return rest;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
+
+    // 必須質問のバリデーション
+    const errors: Record<number, string> = {};
+    for (const question of survey?.questions || []) {
+      if (question.is_required) {
+        const answer = answers[question.id];
+        if (
+          answer === undefined ||
+          answer === null ||
+          answer === '' ||
+          (Array.isArray(answer) && answer.length === 0)
+        ) {
+          errors[question.id] = `「${question.question_text}」は必須です`;
+        }
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      // 最初のエラー箇所までスクロール
+      const firstErrorId = Object.keys(errors)[0];
+      const element = document.getElementById(`question-${firstErrorId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       const questionIds = survey?.questions.map((q) => q.id) || [];
-      
-      // 必須質問のチェック
-      for (const question of survey?.questions || []) {
-        if (question.is_required && !answers[question.id]) {
-          alert(`「${question.question_text}」は必須です`);
-          setSubmitting(false);
-          return;
-        }
-      }
 
-      // 各質問に対して投票を送信
       if (!survey) {
-        alert('アンケートが見つかりません');
+        setSubmitError('アンケートが見つかりません');
         setSubmitting(false);
         return;
       }
@@ -145,7 +207,7 @@ export default function VotePage() {
 
       setSubmitted(true);
     } catch (err: any) {
-      alert(err.response?.data?.error || '投票の送信に失敗しました');
+      setSubmitError(err.response?.data?.error || '投票の送信に失敗しました');
     } finally {
       setSubmitting(false);
     }
@@ -154,7 +216,7 @@ export default function VotePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center" role="status" aria-label="読み込み中">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
@@ -176,9 +238,13 @@ export default function VotePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
         <div className="text-center bg-white p-8 rounded-lg shadow-lg">
-          <div className="text-6xl mb-4">✓</div>
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">投票ありがとうございました</h2>
-          <p className="text-gray-600">ご回答いただき、ありがとうございます。</p>
+          <p className="text-gray-600 leading-relaxed">ご回答いただき、ありがとうございます。</p>
         </div>
       </div>
     );
@@ -188,10 +254,24 @@ export default function VotePage() {
     <>
       {/* 同意確認モーダル */}
       {showConsentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-md mx-4">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">投票に関する確認</h2>
-            <p className="text-gray-700 mb-6">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="consent-title"
+          onKeyDown={handleModalKeyDown}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowConsentModal(false);
+            }
+          }}
+        >
+          <div
+            ref={modalRef}
+            className="bg-white rounded-lg shadow-xl p-8 max-w-md mx-4 overflow-y-auto max-h-[90vh]"
+          >
+            <h2 id="consent-title" className="text-2xl font-bold text-gray-900 mb-4">投票に関する確認</h2>
+            <p className="text-gray-700 mb-6 leading-relaxed">
               この投票は誰かに強制されたものではありません
             </p>
             <label className="flex items-center mb-6 cursor-pointer">
@@ -207,13 +287,14 @@ export default function VotePage() {
             </label>
             <div className="flex justify-end">
               <button
+                ref={consentButtonRef}
                 onClick={() => {
                   if (consentChecked) {
                     setShowConsentModal(false);
                   }
                 }}
                 disabled={!consentChecked}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 cursor-pointer transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 次へ
               </button>
@@ -225,15 +306,18 @@ export default function VotePage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-lg shadow-lg p-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">{survey?.title}</h1>
+            <h1 className="text-xl font-bold text-gray-900 mb-4">{survey?.title}</h1>
             {survey?.description && (
-              <p className="text-gray-600 mb-8">{survey.description}</p>
+              <p className="text-gray-600 mb-8 leading-relaxed">{survey.description}</p>
             )}
 
             <form onSubmit={handleSubmit}>
             {survey?.questions.map((question, index) => (
-              <div key={question.id} className="mb-8">
-                <label className="block text-lg font-semibold text-gray-900 mb-3">
+              <div key={question.id} id={`question-${question.id}`} className="mb-8">
+                <label
+                  htmlFor={question.question_type === 'text' ? `answer-${question.id}` : undefined}
+                  className="block text-lg font-semibold text-gray-900 mb-3"
+                >
                   {index + 1}. {question.question_text}
                   {question.is_required && (
                     <span className="text-red-500 ml-1">*</span>
@@ -242,11 +326,11 @@ export default function VotePage() {
 
                 {question.question_type === 'text' ? (
                   <textarea
+                    id={`answer-${question.id}`}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={4}
                     value={(answers[question.id] as string) || ''}
                     onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                    required={question.is_required}
                   />
                 ) : question.question_type === 'multiple_choice' ? (
                   <div className="space-y-2">
@@ -280,20 +364,31 @@ export default function VotePage() {
                           value={option.id}
                           checked={(answers[question.id] as number) === option.id}
                           onChange={(e) => handleAnswerChange(question.id, parseInt(e.target.value))}
-                          required={question.is_required}
                         />
                         <span>{option.option_text}</span>
                       </label>
                     ))}
                   </div>
                 )}
+
+                {validationErrors[question.id] && (
+                  <p className="mt-2 text-sm text-red-600" role="alert">
+                    {validationErrors[question.id]}
+                  </p>
+                )}
               </div>
             ))}
+
+            {submitError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg" role="alert">
+                <p className="text-sm text-red-600">{submitError}</p>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 cursor-pointer transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               {submitting ? '送信中...' : '投票する'}
             </button>
@@ -304,4 +399,3 @@ export default function VotePage() {
     </>
   );
 }
-

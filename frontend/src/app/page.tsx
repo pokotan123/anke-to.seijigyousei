@@ -7,13 +7,13 @@ export default function Home() {
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
           アンケート・投票システム
         </h1>
-        <p className="text-gray-600 mb-8">
+        <p className="text-gray-600 mb-8 leading-relaxed">
           リアルタイム可視化対応のWebアプリケーション
         </p>
-        <div className="space-x-4">
+        <div className="flex flex-wrap gap-4 justify-center">
           <Link
             href="/admin/login"
-            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors duration-200"
           >
             管理画面へ
           </Link>
@@ -22,4 +22,3 @@ export default function Home() {
     </main>
   )
 }
-

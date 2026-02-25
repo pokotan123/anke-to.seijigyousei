@@ -150,20 +150,20 @@ export default function AnalyticsPage() {
           <div className="flex justify-between h-16">
             <div className="flex items-center space-x-4">
               <h1 className="text-xl font-bold text-gray-900">分析ダッシュボード</h1>
-              <Link href="/admin/dashboard" className="text-blue-600 hover:text-blue-800">
+              <Link href="/admin/dashboard" className="text-blue-600 hover:text-blue-800 cursor-pointer transition-colors duration-200">
                 アンケート一覧
               </Link>
             </div>
             <div className="flex items-center space-x-4">
               <Link
                 href="/admin/analytics/advanced"
-                className="text-blue-600 hover:text-blue-800"
+                className="text-blue-600 hover:text-blue-800 cursor-pointer transition-colors duration-200"
               >
                 高度な分析
               </Link>
               <button
                 onClick={handleLogout}
-                className="text-gray-600 hover:text-gray-800"
+                className="text-gray-600 hover:text-gray-800 cursor-pointer transition-colors duration-200"
               >
                 ログアウト
               </button>
@@ -236,7 +236,7 @@ export default function AnalyticsPage() {
                 </div>
                 <div className="bg-white shadow rounded-lg p-6">
                   <h3 className="text-sm font-medium text-gray-500 mb-2">最終更新</h3>
-                  <p className="text-sm text-gray-900">
+                  <p className="text-sm text-gray-900 leading-relaxed">
                     {new Date(analyticsData.updated_at).toLocaleString('ja-JP')}
                   </p>
                 </div>
@@ -337,13 +337,13 @@ export default function AnalyticsPage() {
                           <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                               <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                   選択肢
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                   投票数
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                   割合
                                 </th>
                               </tr>
@@ -351,15 +351,15 @@ export default function AnalyticsPage() {
                             <tbody className="bg-white divide-y divide-gray-200">
                               {question.aggregates.map((aggregate, index) => (
                                 <tr key={index}>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 leading-relaxed">
                                     {aggregate.option_text || '自由記述'}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 leading-relaxed">
                                     {aggregate.count}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {typeof aggregate.percentage === 'number' 
-                                      ? aggregate.percentage.toFixed(2) 
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 leading-relaxed">
+                                    {typeof aggregate.percentage === 'number'
+                                      ? aggregate.percentage.toFixed(2)
                                       : parseFloat(aggregate.percentage || '0').toFixed(2)}%
                                   </td>
                                 </tr>
@@ -377,7 +377,7 @@ export default function AnalyticsPage() {
 
           {!analyticsData && selectedSurveyId && (
             <div className="bg-white shadow rounded-lg p-6 text-center">
-              <p className="text-gray-500">データを読み込み中...</p>
+              <p className="text-gray-500 leading-relaxed">データを読み込み中...</p>
             </div>
           )}
         </div>

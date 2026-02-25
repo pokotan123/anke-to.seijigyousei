@@ -40,6 +40,8 @@ function VotesPageContent() {
   const [filterQuestionId, setFilterQuestionId] = useState<number | null>(null);
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -122,6 +124,7 @@ function VotesPageContent() {
       return;
     }
 
+    setExportingCSV(true);
     try {
       // 全データを取得（フィルター適用）
       const allData = await voteAPI.list(selectedSurveyId, 10000, 0, {
@@ -165,6 +168,8 @@ function VotesPageContent() {
       document.body.removeChild(link);
     } catch (err: any) {
       alert(err.response?.data?.error || 'エクスポートに失敗しました');
+    } finally {
+      setExportingCSV(false);
     }
   };
 
@@ -174,6 +179,7 @@ function VotesPageContent() {
       return;
     }
 
+    setExportingExcel(true);
     try {
       // 全データを取得（フィルター適用）
       const allData = await voteAPI.list(selectedSurveyId, 10000, 0, {
@@ -220,6 +226,8 @@ function VotesPageContent() {
       document.body.removeChild(link);
     } catch (err: any) {
       alert(err.response?.data?.error || 'エクスポートに失敗しました');
+    } finally {
+      setExportingExcel(false);
     }
   };
 
@@ -248,7 +256,7 @@ function VotesPageContent() {
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => router.push('/admin/dashboard')}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-gray-600 hover:text-gray-800 cursor-pointer transition-colors duration-200"
               >
                 ← 一覧に戻る
               </button>
@@ -257,7 +265,7 @@ function VotesPageContent() {
             <div className="flex items-center space-x-4">
               <button
                 onClick={handleLogout}
-                className="text-gray-600 hover:text-gray-800"
+                className="text-gray-600 hover:text-gray-800 cursor-pointer transition-colors duration-200"
               >
                 ログアウト
               </button>
@@ -295,17 +303,17 @@ function VotesPageContent() {
                 <div className="flex items-end gap-2">
                   <button
                     onClick={handleExportCSV}
-                    disabled={votes.length === 0}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    disabled={votes.length === 0 || exportingCSV}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 cursor-pointer transition-colors duration-200"
                   >
-                    CSV
+                    {exportingCSV ? 'エクスポート中...' : 'CSV'}
                   </button>
                   <button
                     onClick={handleExportExcel}
-                    disabled={votes.length === 0}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    disabled={votes.length === 0 || exportingExcel}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 cursor-pointer transition-colors duration-200"
                   >
-                    Excel
+                    {exportingExcel ? 'エクスポート中...' : 'Excel'}
                   </button>
                 </div>
               </div>
@@ -379,10 +387,13 @@ function VotesPageContent() {
                     />
                     <button
                       onClick={handleFilterReset}
-                      className="px-3 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                      className="px-3 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 cursor-pointer transition-colors duration-200"
                       title="フィルターリセット"
+                      aria-label="フィルタをクリア"
                     >
-                      ✕
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                     </button>
                   </div>
                 </div>
@@ -414,25 +425,25 @@ function VotesPageContent() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       ID
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       質問ID
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       選択肢ID
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       回答
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       セッションID
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       IPアドレス
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       投票日時
                     </th>
                   </tr>
@@ -474,21 +485,21 @@ function VotesPageContent() {
                   <button
                     onClick={() => setPage(Math.max(1, page - 1))}
                     disabled={page === 1}
-                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 cursor-pointer transition-colors duration-200"
                   >
                     前へ
                   </button>
                   <button
                     onClick={() => setPage(Math.min(totalPages, page + 1))}
                     disabled={page === totalPages}
-                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 cursor-pointer transition-colors duration-200"
                   >
                     次へ
                   </button>
                 </div>
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm text-gray-700">
+                    <p className="text-sm text-gray-700 leading-relaxed">
                       <span className="font-medium">{(page - 1) * limit + 1}</span> から{' '}
                       <span className="font-medium">{Math.min(page * limit, total)}</span> まで表示
                       （全 <span className="font-medium">{total}</span> 件）
@@ -499,7 +510,7 @@ function VotesPageContent() {
                       <button
                         onClick={() => setPage(Math.max(1, page - 1))}
                         disabled={page === 1}
-                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 cursor-pointer transition-colors duration-200"
                       >
                         前へ
                       </button>
@@ -518,7 +529,7 @@ function VotesPageContent() {
                           <button
                             key={pageNum}
                             onClick={() => setPage(pageNum)}
-                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium cursor-pointer transition-colors duration-200 ${
                               page === pageNum
                                 ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                                 : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
@@ -531,7 +542,7 @@ function VotesPageContent() {
                       <button
                         onClick={() => setPage(Math.min(totalPages, page + 1))}
                         disabled={page === totalPages}
-                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 cursor-pointer transition-colors duration-200"
                       >
                         次へ
                       </button>
