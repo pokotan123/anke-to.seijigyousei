@@ -49,6 +49,27 @@ export async function connectDatabase() {
     
     const client = await pool.connect();
     console.log('✅ Database connected');
+
+    // 自動マイグレーション: 不足カラムを追加
+    try {
+      await client.query(`
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surveys' AND column_name='vote_mail_body') THEN
+            ALTER TABLE surveys ADD COLUMN vote_mail_body TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surveys' AND column_name='reminder_mail_body') THEN
+            ALTER TABLE surveys ADD COLUMN reminder_mail_body TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surveys' AND column_name='registration_mail_body') THEN
+            ALTER TABLE surveys ADD COLUMN registration_mail_body TEXT;
+          END IF;
+        END $$;
+      `);
+      console.log('✅ Auto-migration completed');
+    } catch (migrationError) {
+      console.error('⚠️ Auto-migration warning:', migrationError);
+    }
+
     client.release();
     return pool;
   } catch (error: any) {
