@@ -200,6 +200,10 @@ export const voteAPI = {
     const response = await api.get(`/votes?${params.toString()}`);
     return response.data;
   },
+  submitWithToken: async (data: any, voterToken: string) => {
+    const response = await api.post('/votes', { ...data, voter_token: voterToken });
+    return response.data;
+  },
 };
 
 // 分析API
@@ -226,6 +230,30 @@ export const analyticsAPI = {
     const response = await api.get(
       `/admin/analytics/heatmap?survey_id=${surveyId}&question_id=${questionId}`
     );
+    return response.data;
+  },
+};
+
+// 投票者API（メール認証投票機能）
+export const voterAPI = {
+  register: async (surveyToken: string, email: string) => {
+    const response = await api.post('/voters/register', { survey_token: surveyToken, email });
+    return response.data;
+  },
+  verify: async (voterToken: string) => {
+    const response = await api.get(`/voters/verify/${voterToken}`);
+    return response.data;
+  },
+  list: async (surveyId: number) => {
+    const response = await api.get(`/voters?survey_id=${surveyId}`);
+    return response.data;
+  },
+  sendLinks: async (surveyId: number) => {
+    const response = await api.post('/voters/send-links', { survey_id: surveyId });
+    return response.data;
+  },
+  remind: async (surveyId: number) => {
+    const response = await api.post('/voters/remind', { survey_id: surveyId });
     return response.data;
   },
 };
