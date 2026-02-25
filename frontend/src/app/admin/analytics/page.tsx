@@ -227,7 +227,7 @@ export default function AnalyticsPage() {
               {/* サマリー */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="bg-white shadow rounded-lg p-6">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">総投票数</h3>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">総投票者数</h3>
                   <p className="text-3xl font-bold text-gray-900">{analyticsData.total_votes}</p>
                 </div>
                 <div className="bg-white shadow rounded-lg p-6">

@@ -269,7 +269,7 @@ export class VoteModel {
   }
 
   static async getTotalCount(surveyId: number): Promise<number> {
-    const query = 'SELECT COUNT(*) as count FROM votes WHERE survey_id = $1';
+    const query = 'SELECT COUNT(DISTINCT session_id) as count FROM votes WHERE survey_id = $1';
     const result = await pool.query(query, [surveyId]);
     return parseInt(result.rows[0].count);
   }
