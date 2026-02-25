@@ -200,8 +200,26 @@ export const voteAPI = {
     const response = await api.get(`/votes?${params.toString()}`);
     return response.data;
   },
-  submitWithToken: async (data: any, voterToken: string) => {
-    const response = await api.post('/votes', { ...data, voter_token: voterToken });
+  submitAnswersWithToken: async (
+    surveyToken: string,
+    voterToken: string,
+    answers: Array<{ question_id: number; option_id?: number; answer_text?: string }>
+  ): Promise<void> => {
+    for (const answer of answers) {
+      await api.post('/votes', {
+        survey_token: surveyToken,
+        question_id: answer.question_id,
+        option_id: answer.option_id,
+        answer_text: answer.answer_text,
+        voter_token: voterToken,
+      });
+    }
+  },
+  submitBatch: async (
+    voterToken: string,
+    answers: Array<{ question_id: number; option_id?: number; answer_text?: string }>
+  ) => {
+    const response = await api.post('/votes/batch', { voter_token: voterToken, answers });
     return response.data;
   },
 };
@@ -238,6 +256,13 @@ export const analyticsAPI = {
 export const voterAPI = {
   register: async (surveyToken: string, email: string) => {
     const response = await api.post('/voters/register', { survey_token: surveyToken, email });
+    return response.data;
+  },
+  registerWithAnswers: async (
+    surveyToken: string,
+    answers: Array<{ question_id: number; option_id?: number; answer_text?: string }>
+  ) => {
+    const response = await api.post('/voters/register', { survey_token: surveyToken, answers });
     return response.data;
   },
   verify: async (voterToken: string) => {

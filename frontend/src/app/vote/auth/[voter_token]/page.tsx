@@ -15,7 +15,7 @@ interface Option {
 interface Question {
   id: number;
   question_text: string;
-  question_type: 'single_choice' | 'multiple_choice' | 'text';
+  question_type: 'single_choice' | 'multiple_choice' | 'text' | 'email';
   is_required: boolean;
   order: number;
   options?: Option[];
@@ -23,6 +23,7 @@ interface Question {
 
 interface Survey {
   id: number;
+  token: string;
   title: string;
   description: string;
   end_date: string;
@@ -39,18 +40,14 @@ interface VerifyResponse {
   survey: Survey;
 }
 
-interface Answer {
-  question_id: number;
-  option_id?: number;
-  answer_text?: string;
-}
+type AnswerValue = number | number[] | string;
 
 export default function AuthVotePage() {
   const params = useParams();
   const voterToken = params.voter_token as string;
   const [pageState, setPageState] = useState<PageState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
-  const [answers, setAnswers] = useState<Answer[]>([]);
+  const [answers, setAnswers] = useState<Record<number, AnswerValue>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [data, setData] = useState<VerifyResponse | null>(null);
 
@@ -61,8 +58,14 @@ export default function AuthVotePage() {
         setData(response);
         setPageState('consent');
       } catch (error: unknown) {
-        const axiosError = error as { response?: { data?: { error?: string } } };
-        const message = axiosError.response?.data?.error || '認証に失敗しました。URLを確認してください。';
+        const axiosError = error as { response?: { status?: number; data?: { error?: string } } };
+        const status = axiosError.response?.status;
+        const message =
+          status === 403
+            ? '既に投票済みです。投票は1回のみ有効です。'
+            : status === 404
+            ? '無効な投票リンクです。URLを確認してください。'
+            : axiosError.response?.data?.error || '認証に失敗しました。URLを確認してください。';
         setErrorMessage(message);
         setPageState('error');
       }
@@ -70,27 +73,67 @@ export default function AuthVotePage() {
     verifyToken();
   }, [voterToken]);
 
-  const handleAnswer = (questionId: number, optionId?: number, answerText?: string) => {
-    setAnswers(prev => {
-      const filtered = prev.filter(a => a.question_id !== questionId);
-      return [...filtered, { question_id: questionId, option_id: optionId, answer_text: answerText }];
+  const handleAnswer = (
+    questionId: number,
+    questionType: Question['question_type'],
+    optionId?: number,
+    answerText?: string
+  ) => {
+    setAnswers((prev) => {
+      if (questionType === 'text') {
+        return { ...prev, [questionId]: answerText ?? '' };
+      }
+      if (questionType === 'multiple_choice' && optionId !== undefined) {
+        const current = (prev[questionId] as number[]) || [];
+        const next = current.includes(optionId)
+          ? current.filter((id) => id !== optionId)
+          : [...current, optionId];
+        return { ...prev, [questionId]: next };
+      }
+      return { ...prev, [questionId]: optionId as number };
     });
   };
 
-  const allQuestionsAnswered = data
+  const allRequiredAnswered = data
     ? data.survey.questions
-        .filter(q => q.is_required)
-        .every(q => answers.some(a => a.question_id === q.id))
+        .filter((q) => q.is_required)
+        .every((q) => {
+          const answer = answers[q.id];
+          if (answer === undefined || answer === null || answer === '') return false;
+          if (Array.isArray(answer) && answer.length === 0) return false;
+          return true;
+        })
     : false;
 
   const handleSubmit = async () => {
+    if (!data) return;
     setIsSubmitting(true);
     try {
-      await voteAPI.submitWithToken({ answers }, voterToken);
+      const flatAnswers: Array<{ question_id: number; option_id?: number; answer_text?: string }> = [];
+      for (const question of data.survey.questions) {
+        const answer = answers[question.id];
+        if (answer === undefined || answer === null || answer === '') continue;
+        if (question.question_type === 'text') {
+          flatAnswers.push({ question_id: question.id, answer_text: answer as string });
+        } else if (question.question_type === 'multiple_choice') {
+          for (const optionId of answer as number[]) {
+            flatAnswers.push({ question_id: question.id, option_id: optionId });
+          }
+        } else {
+          flatAnswers.push({ question_id: question.id, option_id: answer as number });
+        }
+      }
+      await voteAPI.submitBatch(voterToken, flatAnswers);
       setPageState('complete');
     } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: { error?: string } } };
-      const message = axiosError.response?.data?.error || '投票の送信に失敗しました。';
+      const axiosError = error as { response?: { status?: number; data?: { error?: string } } };
+      const status = axiosError.response?.status;
+      const message =
+        status === 403
+          ? '既に投票済みです。重複投票はできません。'
+          : status === 404
+          ? 'アンケートまたは質問が見つかりません。'
+          : axiosError.response?.data?.error || '投票の送信に失敗しました。';
       setErrorMessage(message);
       setPageState('error');
     } finally {
@@ -98,7 +141,6 @@ export default function AuthVotePage() {
     }
   };
 
-  // ローディング
   if (pageState === 'loading') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -114,7 +156,6 @@ export default function AuthVotePage() {
     );
   }
 
-  // エラー
   if (pageState === 'error') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -131,7 +172,6 @@ export default function AuthVotePage() {
     );
   }
 
-  // 投票完了
   if (pageState === 'complete') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -148,25 +188,24 @@ export default function AuthVotePage() {
     );
   }
 
-  // data が null の場合は何も表示しない（通常到達しない）
-  if (!data) {
-    return null;
-  }
+  if (!data) return null;
 
-  // 同意確認モーダル
   if (pageState === 'consent') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg max-w-lg w-full p-8">
           <h1 className="text-xl font-bold text-gray-900 mb-2">{data.survey.title}</h1>
           <p className="text-gray-600 leading-relaxed mb-4">{data.survey.description}</p>
-          <div className="text-sm text-gray-500 mb-2">
-            ログイン: {data.voter.email}
-          </div>
+          <div className="text-sm text-gray-500 mb-2">ログイン: {data.voter.email}</div>
           {data.survey.end_date && (
             <div className="text-sm text-gray-500 mb-6">
-              投票期限: {new Date(data.survey.end_date).toLocaleDateString('ja-JP', {
-                year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+              投票期限:{' '}
+              {new Date(data.survey.end_date).toLocaleDateString('ja-JP', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
               })}
             </div>
           )}
@@ -178,20 +217,17 @@ export default function AuthVotePage() {
               <li>あなたの投票内容が誰かに知られることはありません。</li>
             </ul>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setPageState('voting')}
-              className="flex-1 py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 cursor-pointer transition-colors duration-200"
-            >
-              同意して投票する
-            </button>
-          </div>
+          <button
+            onClick={() => setPageState('voting')}
+            className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 cursor-pointer transition-colors duration-200"
+          >
+            同意して投票する
+          </button>
         </div>
       </div>
     );
   }
 
-  // 確認画面
   if (pageState === 'confirm') {
     return (
       <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -200,14 +236,22 @@ export default function AuthVotePage() {
             <h2 className="text-xl font-bold text-gray-900 mb-6">回答内容の確認</h2>
             <div className="space-y-4 mb-8">
               {data.survey.questions.map((q) => {
-                const answer = answers.find(a => a.question_id === q.id);
-                const selectedOption = q.options?.find(o => o.id === answer?.option_id);
+                const answer = answers[q.id];
+                let displayText = '（未回答）';
+                if (q.question_type === 'text' && typeof answer === 'string' && answer) {
+                  displayText = answer;
+                } else if (q.question_type === 'multiple_choice' && Array.isArray(answer) && answer.length > 0) {
+                  displayText = answer
+                    .map((id) => q.options?.find((o) => o.id === id)?.option_text ?? '')
+                    .filter(Boolean)
+                    .join('、');
+                } else if (typeof answer === 'number') {
+                  displayText = q.options?.find((o) => o.id === answer)?.option_text ?? '（未回答）';
+                }
                 return (
                   <div key={q.id} className="border-b pb-4">
                     <p className="text-sm font-medium text-gray-700 mb-1">{q.question_text}</p>
-                    <p className="text-gray-900 leading-relaxed">
-                      {selectedOption?.option_text || answer?.answer_text || '（未回答）'}
-                    </p>
+                    <p className="text-gray-900 leading-relaxed">{displayText}</p>
                   </div>
                 );
               })}
@@ -233,7 +277,7 @@ export default function AuthVotePage() {
     );
   }
 
-  // 投票フォーム
+  // 投票フォーム (pageState === 'voting')
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
@@ -262,14 +306,38 @@ export default function AuthVotePage() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                       rows={3}
                       placeholder="回答を入力してください"
-                      value={answers.find(a => a.question_id === question.id)?.answer_text || ''}
-                      onChange={(e) => handleAnswer(question.id, undefined, e.target.value)}
+                      value={(answers[question.id] as string) || ''}
+                      onChange={(e) => handleAnswer(question.id, 'text', undefined, e.target.value)}
                     />
+                  </div>
+                ) : question.question_type === 'multiple_choice' ? (
+                  <div className="space-y-2">
+                    {question.options?.map((option) => {
+                      const selected = ((answers[question.id] as number[]) || []).includes(option.id);
+                      return (
+                        <label
+                          key={option.id}
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors duration-200 ${
+                            selected
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() => handleAnswer(question.id, 'multiple_choice', option.id)}
+                            className="h-4 w-4 text-blue-600 cursor-pointer"
+                          />
+                          <span className="text-gray-700">{option.option_text}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {question.options?.map((option) => {
-                      const isSelected = answers.find(a => a.question_id === question.id)?.option_id === option.id;
+                      const isSelected = (answers[question.id] as number) === option.id;
                       return (
                         <label
                           key={option.id}
@@ -283,7 +351,7 @@ export default function AuthVotePage() {
                             type="radio"
                             name={`question-${question.id}`}
                             checked={isSelected}
-                            onChange={() => handleAnswer(question.id, option.id)}
+                            onChange={() => handleAnswer(question.id, 'single_choice', option.id)}
                             className="h-4 w-4 text-blue-600 cursor-pointer"
                           />
                           <span className="text-gray-700">{option.option_text}</span>
@@ -299,12 +367,12 @@ export default function AuthVotePage() {
           <div className="mt-8">
             <button
               onClick={() => setPageState('confirm')}
-              disabled={!allQuestionsAnswered}
+              disabled={!allRequiredAnswered}
               className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed cursor-pointer transition-colors duration-200"
             >
               確認画面へ
             </button>
-            {!allQuestionsAnswered && (
+            {!allRequiredAnswered && (
               <p className="text-sm text-red-500 text-center mt-2">
                 すべての必須項目に回答してください
               </p>

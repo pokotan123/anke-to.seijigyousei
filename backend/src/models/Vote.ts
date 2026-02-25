@@ -1,4 +1,5 @@
 import { pool } from '../database/connection';
+import type { PoolClient } from 'pg';
 
 export interface Vote {
   id: number;
@@ -9,6 +10,7 @@ export interface Vote {
   session_id: string;
   ip_address: string | null;
   user_agent: string | null;
+  voter_token: string | null;
   voted_at: Date;
   created_at: Date;
 }
@@ -21,6 +23,7 @@ export interface CreateVoteInput {
   session_id: string;
   ip_address?: string;
   user_agent?: string;
+  voter_token?: string;
 }
 
 export interface VoteAggregate {
@@ -33,8 +36,8 @@ export interface VoteAggregate {
 export class VoteModel {
   static async create(input: CreateVoteInput): Promise<Vote> {
     const query = `
-      INSERT INTO votes (survey_id, question_id, option_id, answer_text, session_id, ip_address, user_agent, voted_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+      INSERT INTO votes (survey_id, question_id, option_id, answer_text, session_id, ip_address, user_agent, voter_token, voted_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
       RETURNING *
     `;
     const values = [
@@ -45,10 +48,43 @@ export class VoteModel {
       input.session_id,
       input.ip_address || null,
       input.user_agent || null,
+      input.voter_token || null,
     ];
     
     const result = await pool.query(query, values);
     return result.rows[0];
+  }
+
+  /**
+   * Insert multiple votes in a single transaction using an already-acquired
+   * PoolClient.  The caller is responsible for BEGIN / COMMIT / ROLLBACK so
+   * that marking the voter as 'voted' can happen atomically in the same tx.
+   */
+  static async createBatch(
+    client: PoolClient,
+    inputs: CreateVoteInput[],
+  ): Promise<Vote[]> {
+    const query = `
+      INSERT INTO votes (survey_id, question_id, option_id, answer_text, session_id, ip_address, user_agent, voter_token, voted_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+      RETURNING *
+    `;
+    const votes: Vote[] = [];
+    for (const input of inputs) {
+      const values = [
+        input.survey_id,
+        input.question_id,
+        input.option_id ?? null,
+        input.answer_text ?? null,
+        input.session_id,
+        input.ip_address ?? null,
+        input.user_agent ?? null,
+        input.voter_token ?? null,
+      ];
+      const result = await client.query(query, values);
+      votes.push(result.rows[0]);
+    }
+    return votes;
   }
 
   static async findById(id: number): Promise<Vote | null> {
@@ -272,6 +308,22 @@ export class VoteModel {
       ORDER BY hour ASC, v.option_id ASC
     `;
     const result = await pool.query(query, [surveyId, questionId]);
+    return result.rows;
+  }
+
+  static async hasVotedByToken(voterToken: string, questionId: number): Promise<boolean> {
+    const query = `
+      SELECT COUNT(*) as count
+      FROM votes
+      WHERE voter_token = $1 AND question_id = $2
+    `;
+    const result = await pool.query(query, [voterToken, questionId]);
+    return parseInt(result.rows[0].count) > 0;
+  }
+
+  static async findByVoterToken(voterToken: string): Promise<Vote[]> {
+    const query = 'SELECT * FROM votes WHERE voter_token = $1 ORDER BY voted_at DESC';
+    const result = await pool.query(query, [voterToken]);
     return result.rows;
   }
 }

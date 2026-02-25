@@ -13,6 +13,7 @@ export interface Survey {
   registration_message: string | null;
   registration_deadline: Date | null;
   registration_fields: any[] | null;
+  linked_voting_survey_id: number | null;
   created_at: Date;
   updated_at: Date;
   created_by: number;
@@ -29,6 +30,7 @@ export interface CreateSurveyInput {
   registration_message?: string;
   registration_deadline?: Date;
   registration_fields?: any[];
+  linked_voting_survey_id?: number | null;
 }
 
 export interface UpdateSurveyInput {
@@ -41,14 +43,15 @@ export interface UpdateSurveyInput {
   registration_message?: string;
   registration_deadline?: Date;
   registration_fields?: any[];
+  linked_voting_survey_id?: number | null;
 }
 
 export class SurveyModel {
   static async create(input: CreateSurveyInput): Promise<Survey> {
     const uniqueToken = this.generateUniqueToken();
     const query = `
-      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by, require_registration, registration_message, registration_deadline, registration_fields)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by, require_registration, registration_message, registration_deadline, registration_fields, linked_voting_survey_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `;
     const values = [
@@ -63,6 +66,7 @@ export class SurveyModel {
       input.registration_message || null,
       input.registration_deadline || null,
       input.registration_fields ? JSON.stringify(input.registration_fields) : '[]',
+      input.linked_voting_survey_id || null,
     ];
 
     const result = await pool.query(query, values);
@@ -136,6 +140,10 @@ export class SurveyModel {
       fields.push(`registration_fields = $${paramCount++}`);
       values.push(JSON.stringify(input.registration_fields));
     }
+    if (input.linked_voting_survey_id !== undefined) {
+      fields.push(`linked_voting_survey_id = $${paramCount++}`);
+      values.push(input.linked_voting_survey_id);
+    }
 
     if (fields.length === 0) {
       return this.findById(id);
@@ -170,6 +178,18 @@ export class SurveyModel {
       RETURNING *
     `;
     const result = await pool.query(query, [uniqueToken, id]);
+    return result.rows[0] || null;
+  }
+
+  static async findRegistrationSurveys(): Promise<Survey[]> {
+    const query = 'SELECT * FROM surveys WHERE linked_voting_survey_id IS NOT NULL ORDER BY created_at DESC';
+    const result = await pool.query(query);
+    return result.rows;
+  }
+
+  static async findByLinkedVotingSurveyId(votingSurveyId: number): Promise<Survey | null> {
+    const query = 'SELECT * FROM surveys WHERE linked_voting_survey_id = $1';
+    const result = await pool.query(query, [votingSurveyId]);
     return result.rows[0] || null;
   }
 

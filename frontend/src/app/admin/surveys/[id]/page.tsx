@@ -16,13 +16,14 @@ interface Survey {
   registration_message: string;
   registration_deadline: string | null;
   registration_fields?: { name: string; required: boolean }[];
+  linked_voting_survey_id: number | null;
   questions: Question[];
 }
 
 interface Question {
   id: number;
   question_text: string;
-  question_type: 'single_choice' | 'multiple_choice' | 'text';
+  question_type: 'single_choice' | 'multiple_choice' | 'text' | 'email';
   order: number;
   is_required: boolean;
   options?: Option[];
@@ -44,6 +45,7 @@ export default function SurveyEditPage() {
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [editingOption, setEditingOption] = useState<{ questionId: number; option: Option | null } | null>(null);
+  const [availableSurveys, setAvailableSurveys] = useState<Array<{id: number; title: string; status: string}>>([]);
 
   const closeQuestionModal = useCallback(() => {
     setShowQuestionModal(false);
@@ -86,6 +88,8 @@ export default function SurveyEditPage() {
       try {
         await authAPI.getMe();
         await loadSurvey();
+        const allSurveys = await surveyAPI.list();
+        setAvailableSurveys(allSurveys);
       } catch (err) {
         localStorage.removeItem('token');
         router.push('/admin/login');
@@ -119,6 +123,7 @@ export default function SurveyEditPage() {
         registration_message: survey.registration_message,
         registration_deadline: survey.registration_deadline,
         registration_fields: (survey.registration_fields || []).filter((f) => f.name.trim() !== ''),
+        linked_voting_survey_id: survey.linked_voting_survey_id,
       });
       alert('保存しました');
     } catch (err: any) {
@@ -556,6 +561,39 @@ export default function SurveyEditPage() {
               )}
             </div>
 
+            {/* 登録用アンケート設定 */}
+            <div className="border-t pt-6 mt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">登録用アンケート設定</h3>
+              <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                このアンケートを登録用（事前登録フォーム）として設定する場合、リンク先の投票用アンケートを選択してください。
+              </p>
+              <div>
+                <label htmlFor="linkedSurvey" className="block text-sm font-medium text-gray-700 mb-2">
+                  投票用アンケート（リンク先）
+                </label>
+                <select
+                  id="linkedSurvey"
+                  value={survey.linked_voting_survey_id ?? ''}
+                  onChange={(e) => setSurvey({ ...survey, linked_voting_survey_id: e.target.value ? parseInt(e.target.value) : null })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="">なし（通常のアンケート）</option>
+                  {availableSurveys
+                    .filter((s) => s.id !== survey.id && s.status === 'published')
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.title}
+                      </option>
+                    ))}
+                </select>
+                {survey.linked_voting_survey_id && (
+                  <p className="text-xs text-blue-600 mt-2 leading-relaxed">
+                    このアンケートは登録用として設定されています。メールアドレス（email）タイプの質問を必ず1つ追加してください。
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div className="mt-6 flex space-x-4">
               <button
                 onClick={handleSave}
@@ -616,6 +654,7 @@ export default function SurveyEditPage() {
                         {question.question_type === 'single_choice' && '単一選択'}
                         {question.question_type === 'multiple_choice' && '複数選択'}
                         {question.question_type === 'text' && '自由記述'}
+                        {question.question_type === 'email' && 'メールアドレス'}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -766,7 +805,7 @@ export default function SurveyEditPage() {
                         setEditingQuestion({
                           ...editingQuestion,
                           question_type: e.target.value as any,
-                          options: e.target.value === 'text' ? [] : editingQuestion.options,
+                          options: (e.target.value === 'text' || e.target.value === 'email') ? [] : editingQuestion.options,
                         })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 cursor-pointer"
@@ -774,6 +813,7 @@ export default function SurveyEditPage() {
                       <option value="single_choice">単一選択</option>
                       <option value="multiple_choice">複数選択</option>
                       <option value="text">自由記述</option>
+                      <option value="email">メールアドレス</option>
                     </select>
                   </div>
                   <div>

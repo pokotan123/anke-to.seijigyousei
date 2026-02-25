@@ -101,7 +101,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // 管理API: アンケート作成
 router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) => {
   try {
-    const { title, description, status, start_date, end_date } = req.body;
+    const { title, description, status, start_date, end_date, linked_voting_survey_id } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
@@ -118,6 +118,7 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) 
       start_date: start_date ? new Date(start_date) : undefined,
       end_date: end_date ? new Date(end_date) : undefined,
       created_by: req.user.id,
+      linked_voting_survey_id: linked_voting_survey_id || null,
     });
 
     res.status(201).json(survey);
@@ -131,7 +132,7 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) 
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { title, description, status, start_date, end_date } = req.body;
+    const { title, description, status, start_date, end_date, linked_voting_survey_id } = req.body;
 
     const survey = await SurveyModel.update(id, {
       title,
@@ -139,6 +140,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
       status,
       start_date: start_date ? new Date(start_date) : undefined,
       end_date: end_date ? new Date(end_date) : undefined,
+      linked_voting_survey_id,
     });
 
     if (!survey) {

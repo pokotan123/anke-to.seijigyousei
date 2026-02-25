@@ -7,6 +7,7 @@ import { QuestionModel } from '../models/Question';
 import { OptionModel } from '../models/Option';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { MailService } from '../services/mail';
+import { pool } from '../database/connection';
 
 const router = express.Router();
 
@@ -19,11 +20,23 @@ const registerRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
-// Zodスキーマ
-const registerSchema = z.object({
+// レート制限: トークン検証用（1IPあたり15分で30回）
+const verifyRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: 'リクエスト回数の上限に達しました。しばらくしてから再度お試しください。' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Zodスキーマ - 登録アンケート回答用
+const registerSurveySchema = z.object({
   survey_token: z.string().min(1),
-  email: z.string().email('有効なメールアドレスを入力してください'),
-  registration_data: z.record(z.string(), z.string()).optional(),
+  answers: z.array(z.object({
+    question_id: z.number().int().positive(),
+    option_id: z.number().int().positive().optional(),
+    answer_text: z.string().min(1).max(5000).optional(),
+  })).min(1),
 });
 
 // ヘルパー: メールアドレスマスク
@@ -37,85 +50,133 @@ function maskEmail(email: string): string {
 }
 
 // ============================================
-// Task 04: POST /register - 投票者メール登録
+// Task 04: POST /register - 登録アンケート回答 + 投票者登録
 // ============================================
 router.post('/register', registerRateLimit, async (req, res): Promise<void> => {
   try {
-    const parsed = registerSchema.safeParse(req.body);
+    const parsed = registerSurveySchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
 
-    const { survey_token, email } = parsed.data;
+    const { survey_token, answers } = parsed.data;
 
-    // アンケート取得
+    // 登録用アンケート取得
     const survey = await SurveyModel.findByToken(survey_token);
     if (!survey) {
       res.status(404).json({ error: 'アンケートが見つかりません' });
       return;
     }
 
-    // require_registration チェック
-    if (!survey.require_registration) {
-      res.status(403).json({ error: 'このアンケートはメール登録が必要ありません' });
+    // linked_voting_survey_id の確認（登録用アンケートであること）
+    if (!survey.linked_voting_survey_id) {
+      res.status(400).json({ error: 'このアンケートは登録用アンケートではありません' });
       return;
     }
 
     // 公開状態チェック
-    if (survey.status !== 'published') {
+    const isPublished = await SurveyModel.isPublished(survey);
+    if (!isPublished) {
       res.status(403).json({ error: 'このアンケートは現在公開されていません' });
       return;
     }
 
     // 登録締め切りチェック
-    const deadline = survey.registration_deadline;
-    if (deadline && new Date() > new Date(deadline)) {
+    if (survey.registration_deadline && new Date() > new Date(survey.registration_deadline)) {
       res.status(403).json({ error: '登録受付は終了しました' });
       return;
     }
 
-    // カスタム登録項目のバリデーション
-    const registrationFields = (survey.registration_fields || []) as Array<{ name: string; required: boolean }>;
-    const requiredFields = registrationFields.filter((f) => f.required);
-    const regData: Record<string, string> = parsed.data.registration_data || {};
+    // 質問を取得してemail質問を特定
+    const questions = await QuestionModel.findBySurveyId(survey.id);
+    const emailQuestion = questions.find(q => q.question_type === 'email');
+    if (!emailQuestion) {
+      res.status(400).json({ error: 'このアンケートにはメール質問が設定されていません' });
+      return;
+    }
 
-    for (const field of requiredFields) {
-      if (!regData[field.name] || regData[field.name].trim() === '') {
-        res.status(400).json({ error: `${field.name}は必須です` });
+    // 回答からメールアドレスを抽出
+    const emailAnswer = answers.find(a => a.question_id === emailQuestion.id);
+    if (!emailAnswer || !emailAnswer.answer_text) {
+      res.status(400).json({ error: 'メールアドレスの入力が必要です' });
+      return;
+    }
+
+    const email = emailAnswer.answer_text.trim().toLowerCase();
+    // メールバリデーション
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      res.status(400).json({ error: '有効なメールアドレスを入力してください' });
+      return;
+    }
+
+    // 各回答がこのアンケートの質問に属するか検証
+    const questionMap = new Map(questions.map(q => [q.id, q]));
+    for (const answer of answers) {
+      if (!questionMap.has(answer.question_id)) {
+        res.status(400).json({ error: `question_id ${answer.question_id} はこのアンケートに存在しません` });
         return;
       }
     }
 
-    // 重複チェック
-    const existing = await VoterModel.findByEmail(survey.id, email);
-    if (existing) {
+    // 重複チェック（投票用survey側のvotersテーブル）
+    const existingVoter = await VoterModel.findByEmail(survey.linked_voting_survey_id, email);
+    if (existingVoter) {
       res.status(409).json({ error: 'このメールアドレスは既に登録されています' });
       return;
     }
 
-    // 登録
+    // トランザクションで回答保存 + voter作成
+    const voterToken = VoterModel.generateVoterToken();
     const ipAddress = req.ip || req.socket.remoteAddress || undefined;
-    await VoterModel.create({
-      survey_id: survey.id,
-      email,
-      ip_address: ipAddress,
-      registration_data: regData,
-    });
+    const userAgent = req.headers['user-agent'] || undefined;
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // 全回答をvotesテーブルにINSERT（登録survey_id）
+      const { VoteModel } = await import('../models/Vote');
+      const voteInputs = answers.map(answer => ({
+        survey_id: survey.id,
+        question_id: answer.question_id,
+        option_id: answer.option_id,
+        answer_text: answer.answer_text,
+        session_id: voterToken, // voter_tokenをセッションID代わりに使用
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        voter_token: voterToken,
+      }));
+      await VoteModel.createBatch(client, voteInputs);
+
+      // votersテーブルにINSERT（投票用survey_id側）
+      await client.query(
+        `INSERT INTO voters (survey_id, email, voter_token, ip_address, status)
+         VALUES ($1, $2, $3, $4, 'registered')`,
+        [survey.linked_voting_survey_id, email, voterToken, ipAddress || null]
+      );
+
+      await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
+    }
 
     res.status(201).json({
       message: '登録が完了しました。投票リンクは後日メールでお届けします。',
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ error: message });
+    res.status(500).json({ error: '登録処理中にエラーが発生しました' });
   }
 });
 
 // ============================================
 // Task 05: GET /verify/:voter_token - トークン検証
 // ============================================
-router.get('/verify/:voter_token', async (req, res): Promise<void> => {
+router.get('/verify/:voter_token', verifyRateLimit, async (req, res): Promise<void> => {
   try {
     const { voter_token } = req.params;
 
@@ -162,19 +223,19 @@ router.get('/verify/:voter_token', async (req, res): Promise<void> => {
       voter: {
         email: maskedEmail,
         status: voter.status,
+        voter_token: voter.voter_token,
       },
       survey: {
         id: survey.id,
+        token: survey.unique_token,
         title: survey.title,
         description: survey.description,
         end_date: survey.end_date,
-        registration_fields: survey.registration_fields || [],
         questions: questionsWithOptions,
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ error: message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -194,8 +255,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res): Promise<void> 
 
     res.json({ voters, summary });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ error: message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -251,8 +311,7 @@ router.post('/send-links', authenticateToken, async (req: AuthRequest, res): Pro
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ error: message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -307,8 +366,7 @@ router.post('/remind', authenticateToken, async (req: AuthRequest, res): Promise
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ error: message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

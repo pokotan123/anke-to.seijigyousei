@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { surveyAPI, authAPI } from '../../../../lib/api';
 
@@ -15,7 +15,21 @@ export default function NewSurveyPage() {
   const [registrationMessage, setRegistrationMessage] = useState('');
   const [registrationDeadline, setRegistrationDeadline] = useState('');
   const [registrationFields, setRegistrationFields] = useState<{ name: string; required: boolean }[]>([]);
+  const [linkedVotingSurveyId, setLinkedVotingSurveyId] = useState<number | null>(null);
+  const [availableSurveys, setAvailableSurveys] = useState<Array<{id: number; title: string; status: string}>>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchSurveys = async () => {
+      try {
+        const surveys = await surveyAPI.list();
+        setAvailableSurveys(surveys);
+      } catch (err) {
+        // ignore
+      }
+    };
+    fetchSurveys();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +51,7 @@ export default function NewSurveyPage() {
         registration_message: registrationMessage || null,
         registration_deadline: registrationDeadline || null,
         registration_fields: registrationFields.filter((f) => f.name.trim() !== ''),
+        linked_voting_survey_id: linkedVotingSurveyId,
       });
       router.push(`/admin/surveys/${survey.id}`);
     } catch (err: any) {
@@ -242,6 +257,39 @@ export default function NewSurveyPage() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* 登録用アンケート設定 */}
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">登録用アンケート設定</h3>
+                <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                  このアンケートを登録用（事前登録フォーム）として設定する場合、リンク先の投票用アンケートを選択してください。
+                </p>
+                <div>
+                  <label htmlFor="linkedSurvey" className="block text-sm font-medium text-gray-700 mb-2">
+                    投票用アンケート（リンク先）
+                  </label>
+                  <select
+                    id="linkedSurvey"
+                    value={linkedVotingSurveyId ?? ''}
+                    onChange={(e) => setLinkedVotingSurveyId(e.target.value ? parseInt(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  >
+                    <option value="">なし（通常のアンケート）</option>
+                    {availableSurveys
+                      .filter((s) => s.status === 'published')
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.title}
+                        </option>
+                      ))}
+                  </select>
+                  {linkedVotingSurveyId && (
+                    <p className="text-xs text-blue-600 mt-2 leading-relaxed">
+                      このアンケートは登録用として設定されます。メールアドレス（email）タイプの質問を必ず1つ追加してください。
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="flex space-x-4 pt-4">

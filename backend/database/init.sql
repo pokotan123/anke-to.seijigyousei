@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS questions (
     id SERIAL PRIMARY KEY,
     survey_id INTEGER NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
     question_text TEXT NOT NULL,
-    question_type VARCHAR(20) NOT NULL CHECK (question_type IN ('single_choice', 'multiple_choice', 'text')),
+    question_type VARCHAR(20) NOT NULL CHECK (question_type IN ('single_choice', 'multiple_choice', 'text', 'email')),
     "order" INTEGER NOT NULL DEFAULT 0,
     is_required BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -167,3 +167,26 @@ BEGIN
     END IF;
 END
 $$;
+
+-- Two-Survey Model: linked_voting_survey_id
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surveys' AND column_name='linked_voting_survey_id') THEN
+        ALTER TABLE surveys ADD COLUMN linked_voting_survey_id INTEGER REFERENCES surveys(id) ON DELETE SET NULL;
+    END IF;
+END
+$$;
+CREATE INDEX IF NOT EXISTS idx_surveys_linked ON surveys(linked_voting_survey_id);
+
+-- Two-Survey Model: votes.voter_token
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='votes' AND column_name='voter_token') THEN
+        ALTER TABLE votes ADD COLUMN voter_token VARCHAR(64);
+    END IF;
+END
+$$;
+CREATE INDEX IF NOT EXISTS idx_votes_voter_token ON votes(voter_token);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_unique_voter_question
+  ON votes(voter_token, question_id)
+  WHERE voter_token IS NOT NULL;

@@ -1,0 +1,24 @@
+{
+  "feature": "two-survey-voting",
+  "created": "2025-02-25",
+  "total_tasks": 12,
+  "completed_tasks": 11,
+  "progress": "92%",
+  "current_phase": "testing",
+  "tasks": [
+    { "id": 1, "name": "DBマイグレーション", "status": "completed", "depends_on": [] },
+    { "id": 2, "name": "Surveyモデル更新", "status": "completed", "depends_on": [1] },
+    { "id": 3, "name": "VoteModel更新", "status": "completed", "depends_on": [1] },
+    { "id": 4, "name": "登録アンケート回答API", "status": "completed", "depends_on": [1, 2, 3] },
+    { "id": 5, "name": "バッチ投票API", "status": "completed", "depends_on": [1, 3] },
+    { "id": 6, "name": "既存API修正", "status": "completed", "depends_on": [1] },
+    { "id": 7, "name": "セキュリティ修正", "status": "completed", "depends_on": [6] },
+    { "id": 8, "name": "フロント: 登録ページ再設計", "status": "completed", "depends_on": [4] },
+    { "id": 9, "name": "フロント: 認証投票ページ修正", "status": "completed", "depends_on": [5] },
+    { "id": 10, "name": "フロント: 管理画面改修", "status": "completed", "depends_on": [2] },
+    { "id": 11, "name": "フロント: 投票者管理改修", "status": "completed", "depends_on": [4] },
+    { "id": 12, "name": "E2Eテスト・デプロイ", "status": "pending", "depends_on": [1,2,3,4,5,6,7,8,9,10,11] }
+  ],
+  "next_task": 12,
+  "next_task_reason": "全実装タスク完了。本番DBマイグレーション実行 + デプロイが残り"
+}

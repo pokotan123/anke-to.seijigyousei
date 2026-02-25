@@ -28,6 +28,7 @@ interface Survey {
   title: string;
   unique_token: string;
   registration_fields?: { name: string; required: boolean }[];
+  linked_voting_survey_id: number | null;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {

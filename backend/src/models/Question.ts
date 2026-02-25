@@ -4,7 +4,7 @@ export interface Question {
   id: number;
   survey_id: number;
   question_text: string;
-  question_type: 'single_choice' | 'multiple_choice' | 'text';
+  question_type: 'single_choice' | 'multiple_choice' | 'text' | 'email';
   order: number;
   is_required: boolean;
   created_at: Date;
@@ -14,14 +14,14 @@ export interface Question {
 export interface CreateQuestionInput {
   survey_id: number;
   question_text: string;
-  question_type: 'single_choice' | 'multiple_choice' | 'text';
+  question_type: 'single_choice' | 'multiple_choice' | 'text' | 'email';
   order?: number;
   is_required?: boolean;
 }
 
 export interface UpdateQuestionInput {
   question_text?: string;
-  question_type?: 'single_choice' | 'multiple_choice' | 'text';
+  question_type?: 'single_choice' | 'multiple_choice' | 'text' | 'email';
   order?: number;
   is_required?: boolean;
 }
