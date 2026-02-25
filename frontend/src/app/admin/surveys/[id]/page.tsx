@@ -11,6 +11,31 @@ import OptionModal from '../../../../components/admin/OptionModal';
 const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800';
 const labelClass = 'block text-sm font-medium text-slate-600 mb-1.5';
 
+const DEFAULT_VOTE_MAIL_BODY = `{email} 様
+
+「{survey_title}」への投票が可能になりました。
+下記のボタンから投票画面にお進みください。
+
+投票期限: {end_date}
+
+※このリンクはあなた専用です。他の方への転送はお控えください。
+※1度投票すると、リンクは無効になります。`;
+
+const DEFAULT_REMINDER_MAIL_BODY = `{email} 様
+
+「{survey_title}」の投票がまだお済みでないようです。
+投票期限({end_date})までに、下記のボタンから投票をお願いいたします。
+
+※このリンクはあなた専用です。他の方への転送はお控えください。`;
+
+const DEFAULT_REGISTRATION_MAIL_BODY = `{email} 様
+
+「{survey_title}」への登録が完了しました。
+
+紐づけ先の投票アンケート「{voting_survey_title}」の投票リンクは、後日メールでお届けします。しばらくお待ちください。
+
+※このメールに心当たりがない場合は破棄してください。`;
+
 export default function SurveyEditPage() {
   const router = useRouter();
   const params = useParams();
@@ -53,7 +78,13 @@ export default function SurveyEditPage() {
 
   const loadSurvey = useCallback(async () => {
     const data = await surveyAPI.get(surveyId);
-    setSurvey(data);
+    const isReg = !!data.linked_voting_survey_id;
+    setSurvey({
+      ...data,
+      vote_mail_body: data.vote_mail_body ?? (isReg ? null : DEFAULT_VOTE_MAIL_BODY),
+      reminder_mail_body: data.reminder_mail_body ?? (isReg ? null : DEFAULT_REMINDER_MAIL_BODY),
+      registration_mail_body: data.registration_mail_body ?? (isReg ? DEFAULT_REGISTRATION_MAIL_BODY : null),
+    });
   }, [surveyId]);
 
   useEffect(() => {
@@ -469,7 +500,7 @@ export default function SurveyEditPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 sm:p-8 mb-6">
           <h2 className="text-sm font-bold text-slate-800 mb-2">メール文面設定</h2>
           <p className="text-xs text-slate-400 mb-5 leading-relaxed">
-            空欄の場合はデフォルトの文面が使用されます。投票リンクのボタンは自動的に挿入されます。
+            本文中で下記のタグを使用すると、送信時に実際の値に置換されます。投票リンクはメール末尾に自動挿入されます。
           </p>
           <div className="space-y-5">
             {!isRegistrationSurvey ? (
@@ -480,8 +511,7 @@ export default function SurveyEditPage() {
                     id="voteMailBody"
                     value={survey.vote_mail_body || ''}
                     onChange={(e) => setSurvey({ ...survey, vote_mail_body: e.target.value || null })}
-                    rows={5}
-                    placeholder={'例: {survey_title}への投票をお願いいたします。\n{email} 様、下記のボタンから投票画面にお進みください。\n投票期限: {end_date}'}
+                    rows={8}
                     className={`${inputClass} resize-none leading-relaxed`}
                   />
                   <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
@@ -491,7 +521,7 @@ export default function SurveyEditPage() {
                       <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'email'}</code> 投票者のメールアドレス</p>
                       <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'end_date'}</code> 投票期限日時</p>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1.5">※ 投票ボタンはメール末尾に自動挿入されます</p>
+                    <p className="text-xs text-slate-400 mt-1.5">※ 投票リンクはメール末尾に自動挿入されます</p>
                   </div>
                 </div>
                 <div>
@@ -500,8 +530,7 @@ export default function SurveyEditPage() {
                     id="reminderMailBody"
                     value={survey.reminder_mail_body || ''}
                     onChange={(e) => setSurvey({ ...survey, reminder_mail_body: e.target.value || null })}
-                    rows={5}
-                    placeholder={'例: {email} 様、{survey_title}の投票がまだお済みでないようです。\n期限({end_date})までに投票をお願いいたします。'}
+                    rows={8}
                     className={`${inputClass} resize-none leading-relaxed`}
                   />
                   <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
@@ -511,7 +540,7 @@ export default function SurveyEditPage() {
                       <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'email'}</code> 投票者のメールアドレス</p>
                       <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'end_date'}</code> 投票期限日時</p>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1.5">※ 投票ボタンはメール末尾に自動挿入されます</p>
+                    <p className="text-xs text-slate-400 mt-1.5">※ 投票リンクはメール末尾に自動挿入されます</p>
                   </div>
                 </div>
               </>
@@ -522,8 +551,7 @@ export default function SurveyEditPage() {
                   id="registrationMailBody"
                   value={survey.registration_mail_body || ''}
                   onChange={(e) => setSurvey({ ...survey, registration_mail_body: e.target.value || null })}
-                  rows={5}
-                  placeholder={'例: {email} 様、{survey_title}への登録が完了しました。\n{voting_survey_title}の投票リンクは後日お届けします。'}
+                  rows={8}
                   className={`${inputClass} resize-none leading-relaxed`}
                 />
                 <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
