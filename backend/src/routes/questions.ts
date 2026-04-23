@@ -2,11 +2,12 @@ import express from 'express';
 import { QuestionModel } from '../models/Question';
 import { OptionModel } from '../models/Option';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
+import { auditLogMiddleware } from '../middleware/auditLog';
 
 const router = express.Router();
 
 // 管理API: 質問一覧取得
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, auditLogMiddleware, async (req, res) => {
   try {
     const surveyId = req.query.survey_id as string;
     if (!surveyId) {
@@ -29,7 +30,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // 管理API: 質問詳細取得
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, auditLogMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const question = await QuestionModel.findById(id);
@@ -47,7 +48,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // 管理API: 質問作成
-router.post('/', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {
     const { survey_id, question_text, question_type, order, is_required } = req.body;
 
@@ -71,7 +72,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 管理API: 質問更新
-router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/:id', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { question_text, question_type, order, is_required } = req.body;
@@ -95,7 +96,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 管理API: 質問削除
-router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const deleted = await QuestionModel.delete(id);
@@ -112,7 +113,7 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 管理API: 選択肢作成
-router.post('/:id/options', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/:id/options', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {
     const questionId = parseInt(req.params.id);
     const { option_text, order } = req.body;
@@ -135,7 +136,7 @@ router.post('/:id/options', authenticateToken, requireAdmin, async (req, res) =>
 });
 
 // 管理API: 選択肢更新
-router.put('/options/:optionId', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/options/:optionId', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {
     const optionId = parseInt(req.params.optionId);
     const { option_text, order } = req.body;
@@ -157,7 +158,7 @@ router.put('/options/:optionId', authenticateToken, requireAdmin, async (req, re
 });
 
 // 管理API: 選択肢削除
-router.delete('/options/:optionId', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/options/:optionId', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {
     const optionId = parseInt(req.params.optionId);
     const deleted = await OptionModel.delete(optionId);

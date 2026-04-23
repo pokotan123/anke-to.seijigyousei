@@ -7,6 +7,7 @@ import { VoterModel } from '../models/Voter';
 import { QuestionModel } from '../models/Question';
 import { OptionModel } from '../models/Option';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { auditLogMiddleware } from '../middleware/auditLog';
 import { redisClient } from '../database/redis';
 import { pool } from '../database/connection';
 import { broadcastVoteUpdate } from '../socket';

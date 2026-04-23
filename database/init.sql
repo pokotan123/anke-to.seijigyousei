@@ -91,6 +91,30 @@ CREATE INDEX idx_votes_voted_at ON votes(voted_at);
 CREATE INDEX idx_votes_survey_question_option ON votes(survey_id, question_id, option_id);
 CREATE INDEX idx_votes_survey_session ON votes(survey_id, session_id);
 
+-- 監査ログテーブル（個人情報取扱覚書 第6条3項対応：admin_id 付きアクセスログ / 設計書 v2.3 準拠）
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    admin_id_snapshot INTEGER NOT NULL,
+    admin_id INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    admin_username VARCHAR(100),
+    action VARCHAR(50) NOT NULL,
+    resource_type VARCHAR(50),
+    resource_id VARCHAR(100),
+    http_method VARCHAR(10) NOT NULL,
+    endpoint VARCHAR(500) NOT NULL,
+    route_pattern VARCHAR(255),
+    status_code INTEGER NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(500),
+    details JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_admin_created ON audit_logs(admin_id_snapshot, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created ON audit_logs(action, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource_created ON audit_logs(resource_type, resource_id, created_at DESC);
+
 -- 更新日時を自動更新する関数
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
