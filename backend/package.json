@@ -11,6 +11,7 @@
     "seed": "tsx src/database/seed.ts",
     "init": "tsx src/database/init.ts",
     "reset-password": "tsx src/database/reset-admin-password.ts",
+    "prune-audit-logs": "tsx src/database/prune-audit-logs.ts",
     "lint": "eslint src --ext .ts",
     "test": "jest"
   },

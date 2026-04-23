@@ -14,6 +14,8 @@ import questionRoutes from './routes/questions';
 import voteRoutes from './routes/votes';
 import analyticsRoutes from './routes/analytics';
 import voterRoutes from './routes/voters';
+import auditLogsRoutes from './routes/auditLogs';
+import { authenticateToken, requireAdmin } from './middleware/auth';
 import { setupSocketIO } from './socket';
 import { setIO } from './routes/votes';
 
@@ -81,6 +83,7 @@ app.use('/api/v1/questions', questionRoutes);
 app.use('/api/v1/votes', voteRoutes);
 app.use('/api/v1/admin/analytics', analyticsRoutes);
 app.use('/api/v1/voters', voterRoutes);
+app.use('/api/v1/admin/audit-logs', authenticateToken, requireAdmin, auditLogsRoutes);
 
 // Socket.io設定
 setupSocketIO(io);
@@ -102,6 +105,7 @@ app.get('/', (_req, res) => {
         votes: '/api/v1/votes',
         analytics: '/api/v1/admin/analytics',
         voters: '/api/v1/voters',
+        auditLogs: '/api/v1/admin/audit-logs',
       },
     },
     documentation: 'This is the backend API server. Please use the frontend application to access the system.',

@@ -3,6 +3,7 @@ import { SurveyModel } from '../models/Survey';
 import { QuestionModel } from '../models/Question';
 import { OptionModel } from '../models/Option';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
+import { auditLogMiddleware } from '../middleware/auditLog';
 import { redisClient } from '../database/redis';
 import { pool } from '../database/connection';
 
@@ -59,7 +60,7 @@ router.get('/token/:token', async (req, res) => {
 });
 
 // 管理API: アンケート一覧取得
-router.get('/', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/', authenticateToken, auditLogMiddleware, async (req: AuthRequest, res) => {
   try {
     const createdBy = req.user?.role === 'admin' ? undefined : req.user?.id;
     const surveys = await SurveyModel.findAll(createdBy);
@@ -71,7 +72,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // 管理API: アンケート詳細取得
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, auditLogMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const survey = await SurveyModel.findById(id);
@@ -99,7 +100,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // 管理API: アンケート作成
-router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) => {
+router.post('/', authenticateToken, auditLogMiddleware, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { title, description, status, start_date, end_date, registration_start_date, linked_voting_survey_id, vote_mail_body, reminder_mail_body, registration_mail_body } = req.body;
 
@@ -133,7 +134,7 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) 
 });
 
 // 管理API: アンケート更新
-router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/:id', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { title, description, status, start_date, end_date, registration_start_date, registration_deadline, require_registration, registration_message, registration_fields, linked_voting_survey_id, vote_mail_body, reminder_mail_body, registration_mail_body } = req.body;
@@ -172,7 +173,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 管理API: アンケート削除
-router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const survey = await SurveyModel.findById(id);
@@ -196,7 +197,7 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // 管理API: URLトークン再発行
-router.post('/:id/regenerate-token', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/:id/regenerate-token', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const survey = await SurveyModel.findById(id);
@@ -224,7 +225,7 @@ router.post('/:id/regenerate-token', authenticateToken, requireAdmin, async (req
 });
 
 // 管理API: CSVエクスポート
-router.get('/:id/export/csv', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/:id/export/csv', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const survey = await SurveyModel.findById(id);

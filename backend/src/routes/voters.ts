@@ -6,6 +6,7 @@ import { SurveyModel } from '../models/Survey';
 import { QuestionModel } from '../models/Question';
 import { OptionModel } from '../models/Option';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { auditLogMiddleware } from '../middleware/auditLog';
 import { MailService } from '../services/mail';
 import { pool } from '../database/connection';
 
@@ -262,7 +263,7 @@ router.get('/verify/:voter_token', verifyRateLimit, async (req, res): Promise<vo
 // ============================================
 // Task 07: GET / - 投票者一覧（管理者用）
 // ============================================
-router.get('/', authenticateToken, async (req: AuthRequest, res): Promise<void> => {
+router.get('/', authenticateToken, auditLogMiddleware, async (req: AuthRequest, res): Promise<void> => {
   try {
     const surveyId = req.query.survey_id as string;
     if (!surveyId) {
@@ -282,7 +283,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res): Promise<void> 
 // ============================================
 // Task 08: POST /send-links - 投票リンク一括送信
 // ============================================
-router.post('/send-links', authenticateToken, async (req: AuthRequest, res): Promise<void> => {
+router.post('/send-links', authenticateToken, auditLogMiddleware, async (req: AuthRequest, res): Promise<void> => {
   try {
     const { survey_id } = req.body;
     if (!survey_id) {
@@ -339,7 +340,7 @@ router.post('/send-links', authenticateToken, async (req: AuthRequest, res): Pro
 // ============================================
 // Task 08: POST /remind - リマインドメール送信
 // ============================================
-router.post('/remind', authenticateToken, async (req: AuthRequest, res): Promise<void> => {
+router.post('/remind', authenticateToken, auditLogMiddleware, async (req: AuthRequest, res): Promise<void> => {
   try {
     const { survey_id } = req.body;
     if (!survey_id) {

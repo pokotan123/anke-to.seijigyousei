@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 interface AdminHeaderProps {
   onLogout: () => void;
-  activePage?: 'dashboard' | 'voters' | 'analytics' | 'votes';
+  activePage?: 'dashboard' | 'voters' | 'analytics' | 'votes' | 'audit-logs';
 }
 
 export default function AdminHeader({ onLogout, activePage }: AdminHeaderProps) {
@@ -27,6 +27,7 @@ export default function AdminHeader({ onLogout, activePage }: AdminHeaderProps) 
             <Link href="/admin/voters" className={linkClass('voters')}>投票者管理</Link>
             <Link href="/admin/analytics" className={linkClass('analytics')}>分析</Link>
             <Link href="/admin/votes" className={linkClass('votes')}>投票データ</Link>
+            <Link href="/admin/audit-logs" className={linkClass('audit-logs')}>監査ログ</Link>
             <button onClick={onLogout} className="text-slate-400 hover:text-slate-600 cursor-pointer transition-colors">ログアウト</button>
           </div>
         </div>
