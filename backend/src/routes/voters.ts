@@ -1,7 +1,8 @@
 import express from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
-import { VoterModel } from '../models/Voter';
+import { VoterModel, normalizeEmail } from '../models/Voter';
+import { MailOutbox } from '../models/MailOutbox';
 import { SurveyModel } from '../models/Survey';
 import { QuestionModel } from '../models/Question';
 import { OptionModel } from '../models/Option';
@@ -70,9 +71,10 @@ router.post('/register', registerRateLimit, async (req, res): Promise<void> => {
       return;
     }
 
-    // linked_voting_survey_id の確認（登録用アンケートであること）
-    if (!survey.linked_voting_survey_id) {
-      res.status(400).json({ error: 'このアンケートは登録用アンケートではありません' });
+    // 1対N: 紐付け済み投票アンケート一覧を取得
+    const linkedVotingIds = await SurveyModel.findLinkedVotingSurveyIds(survey.id);
+    if (linkedVotingIds.length === 0) {
+      res.status(400).json({ error: 'このアンケートには投票アンケートが紐付いていません' });
       return;
     }
 
@@ -110,7 +112,7 @@ router.post('/register', registerRateLimit, async (req, res): Promise<void> => {
       return;
     }
 
-    const email = emailAnswer.answer_text.trim().toLowerCase();
+    const email = normalizeEmail(emailAnswer.answer_text);
     // メールバリデーション
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -127,42 +129,63 @@ router.post('/register', registerRateLimit, async (req, res): Promise<void> => {
       }
     }
 
-    // 重複チェック（投票用survey側のvotersテーブル）
-    const existingVoter = await VoterModel.findByEmail(survey.linked_voting_survey_id, email);
-    if (existingVoter) {
-      res.status(409).json({ error: 'このメールアドレスは既に登録されています' });
-      return;
-    }
-
-    // トランザクションで回答保存 + voter作成
-    const voterToken = VoterModel.generateVoterToken();
     const ipAddress = req.ip || req.socket.remoteAddress || undefined;
     const userAgent = req.headers['user-agent'] || undefined;
+
+    // 1対N: 投票アンケートごとに voter_token を発行
+    const issued: Array<{ voting_survey_id: number; voter_token: string }> = [];
+    const registrationVoterToken = VoterModel.generateVoterToken(); // 登録回答用の代表トークン
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // 全回答をvotesテーブルにINSERT（登録survey_id）
+      // 全回答をvotesテーブルにINSERT（登録survey_id、代表 voter_token）
       const { VoteModel } = await import('../models/Vote');
       const voteInputs = answers.map(answer => ({
         survey_id: survey.id,
         question_id: answer.question_id,
         option_id: answer.option_id,
         answer_text: answer.answer_text,
-        session_id: voterToken, // voter_tokenをセッションID代わりに使用
+        session_id: registrationVoterToken,
         ip_address: ipAddress,
         user_agent: userAgent,
-        voter_token: voterToken,
+        voter_token: registrationVoterToken,
       }));
       await VoteModel.createBatch(client, voteInputs);
 
-      // votersテーブルにINSERT（投票用survey_id側）
-      await client.query(
-        `INSERT INTO voters (survey_id, email, voter_token, ip_address, status)
-         VALUES ($1, $2, $3, $4, 'registered')`,
-        [survey.linked_voting_survey_id, email, voterToken, ipAddress || null]
-      );
+      // 各投票アンケートに対して voter を発行（ON CONFLICT で race-free）
+      for (const votingId of linkedVotingIds) {
+        const votingVoterToken = VoterModel.generateVoterToken();
+        const insertRes = await client.query(
+          `INSERT INTO voters (survey_id, registration_survey_id, email, voter_token, ip_address, status)
+           VALUES ($1, $2, $3, $4, $5, 'registered')
+           ON CONFLICT (survey_id, email) DO NOTHING
+           RETURNING voter_token`,
+          [votingId, survey.id, email, votingVoterToken, ipAddress || null]
+        );
+        if (insertRes.rows.length === 0) {
+          // 既に登録済み = 全体 ROLLBACK して 409
+          await client.query('ROLLBACK');
+          res.status(409).json({ error: 'このメールアドレスは既に登録されています' });
+          return;
+        }
+        issued.push({ voting_survey_id: votingId, voter_token: insertRes.rows[0].voter_token });
+      }
+
+      // mail_outbox に登録完了メールを enqueue（冪等性キー: regconf:{regId}:{emailHash}）
+      const emailHash = MailOutbox.hashEmail(email);
+      await MailOutbox.enqueue(client, {
+        idempotency_key: `regconf:${survey.id}:${emailHash}`,
+        mail_type: 'registration_confirmation',
+        to_email: email,
+        payload: {
+          registration_survey_id: survey.id,
+          registration_survey_title: survey.title,
+          custom_body: survey.registration_mail_body || null,
+          links: issued, // [{voting_survey_id, voter_token}]
+        },
+      });
 
       await client.query('COMMIT');
     } catch (txError) {
@@ -172,22 +195,15 @@ router.post('/register', registerRateLimit, async (req, res): Promise<void> => {
       client.release();
     }
 
-    // 登録完了メール送信（トランザクション外で非同期実行）
-    const votingSurvey = await SurveyModel.findById(survey.linked_voting_survey_id);
-    const votingSurveyTitle = votingSurvey ? votingSurvey.title : '投票アンケート';
-
-    MailService.sendRegistrationConfirmation({
-      email,
-      surveyTitle: survey.title,
-      votingSurveyTitle,
-      customBody: survey.registration_mail_body,
-    }).catch((err) => {
+    // 同期 fire-and-forget で送信（outbox の状態遷移は MailService 側で更新）
+    MailService.processOutboxRegistrationConfirmation(email, survey).catch((err) => {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
       console.error(`Registration confirmation email failed for ${email}:`, errMsg);
     });
 
     res.status(201).json({
       message: '登録が完了しました。投票リンクは後日メールでお届けします。',
+      voting_count: issued.length,
     });
   } catch (error: unknown) {
     res.status(500).json({ error: '登録処理中にエラーが発生しました' });

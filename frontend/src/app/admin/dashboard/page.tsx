@@ -87,8 +87,8 @@ export default function DashboardPage() {
     router.push(`/admin/surveys/${surveyId}/voters`);
   }, [router]);
 
-  const votingSurveys = surveys.filter((s) => !s.linked_voting_survey_id);
-  const regSurveys = surveys.filter((s) => !!s.linked_voting_survey_id);
+  const votingSurveys = surveys.filter((s) => !s.require_registration);
+  const regSurveys = surveys.filter((s) => !!s.require_registration);
 
   const tabs: ReadonlyArray<{ key: Tab; label: string; count: number }> = [
     { key: 'voting', label: '投票アンケート', count: votingSurveys.length },
@@ -176,15 +176,13 @@ export default function DashboardPage() {
         ) : (
           <div className="space-y-3">
             {currentSurveys.map((survey) => {
-              const linkedSurvey = activeTab === 'voting'
-                ? surveys.find((s) => s.linked_voting_survey_id === survey.id)
-                : surveys.find((s) => s.id === survey.linked_voting_survey_id);
+              // 1対N化: ダッシュボードでの紐付け表示は廃止（編集画面の voting-links UI に集約）
               return (
                 <SurveyCard
                   key={survey.id}
                   survey={survey}
                   type={activeTab}
-                  linkedSurvey={linkedSurvey}
+                  linkedSurvey={undefined}
                   onDelete={handleDelete}
                   onExportCSV={handleExportCSV}
                   onVoters={activeTab === 'voting' ? handleVoters : undefined}

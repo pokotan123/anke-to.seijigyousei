@@ -56,6 +56,7 @@ export default function SurveyEditPage() {
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [editingOption, setEditingOption] = useState<{ questionId: number; option: Option | null } | null>(null);
   const [availableSurveys, setAvailableSurveys] = useState<SurveyListItem[]>([]);
+  const [linkedVotingIds, setLinkedVotingIds] = useState<number[]>([]);
 
   const closeQuestionModal = useCallback(() => {
     setShowQuestionModal(false);
@@ -86,7 +87,7 @@ export default function SurveyEditPage() {
 
   const loadSurvey = useCallback(async () => {
     const data = await surveyAPI.get(surveyId);
-    const isReg = !!data.linked_voting_survey_id;
+    const isReg = !!data.require_registration;
     setSurvey({
       ...data,
       vote_mail_body: data.vote_mail_body ?? (isReg ? null : DEFAULT_VOTE_MAIL_BODY),
@@ -107,6 +108,13 @@ export default function SurveyEditPage() {
         await loadSurvey();
         const allSurveys = await surveyAPI.list();
         setAvailableSurveys(allSurveys);
+        // 1対N: voting-links を取得（登録アンケートのみ意味を持つ）
+        try {
+          const links = await surveyAPI.listVotingLinks(surveyId);
+          setLinkedVotingIds(links.voting_survey_ids || []);
+        } catch {
+          setLinkedVotingIds([]);
+        }
       } catch {
         localStorage.removeItem('token');
         router.push('/admin/login');
@@ -136,7 +144,6 @@ export default function SurveyEditPage() {
         registration_message: survey.registration_message,
         registration_deadline: survey.registration_deadline,
         registration_fields: (survey.registration_fields || []).filter((f) => f.name.trim() !== ''),
-        linked_voting_survey_id: survey.linked_voting_survey_id,
         vote_mail_body: survey.vote_mail_body,
         reminder_mail_body: survey.reminder_mail_body,
         registration_mail_body: survey.registration_mail_body,
@@ -164,7 +171,7 @@ export default function SurveyEditPage() {
 
   const copyUrl = () => {
     if (!survey) return;
-    const prefix = survey.linked_voting_survey_id ? 'register' : 'vote';
+    const prefix = survey.require_registration ? 'register' : 'vote';
     const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/${prefix}/${survey.unique_token}`;
     navigator.clipboard.writeText(url);
     alert('URLをコピーしました');
@@ -303,21 +310,27 @@ export default function SurveyEditPage() {
     }
   };
 
-  const handleLinkedSurveyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+  /** 1対N: 登録アンケートの voting-links を一括更新 */
+  const handleVotingLinksUpdate = async (newVotingIds: number[]) => {
     if (!survey) return;
-    const newRegId = e.target.value ? parseInt(e.target.value) : null;
-    const currentReg = availableSurveys.find((s) => s.linked_voting_survey_id === survey.id);
     try {
-      if (currentReg) {
-        await surveyAPI.update(currentReg.id, { linked_voting_survey_id: null });
-      }
-      if (newRegId) {
-        await surveyAPI.update(newRegId, { linked_voting_survey_id: survey.id });
-      }
-      const allSurveys = await surveyAPI.list();
-      setAvailableSurveys(allSurveys);
+      await surveyAPI.updateVotingLinks(survey.id, newVotingIds, survey.updated_at);
+      const updated = await surveyAPI.listVotingLinks(survey.id);
+      setLinkedVotingIds(updated.voting_survey_ids);
     } catch (err: any) {
-      alert(err.response?.data?.error || '紐づけの変更に失敗しました');
+      alert(err.response?.data?.error || '紐付けの変更に失敗しました');
+    }
+  };
+
+  /** 1対N: 後付けで追加した投票アンケートを既存登録者に通知 */
+  const handleNotifyNewLink = async (votingId: number) => {
+    if (!survey) return;
+    if (!confirm('この投票アンケートを既存登録者全員にメール通知しますか？')) return;
+    try {
+      const result = await surveyAPI.notifyVotingLink(survey.id, votingId);
+      alert(`通知メールを ${result.enqueued} 件キューに追加しました（スキップ: ${result.skipped} 件）`);
+    } catch (err: any) {
+      alert(err.response?.data?.error || '通知に失敗しました');
     }
   };
 
@@ -346,16 +359,12 @@ export default function SurveyEditPage() {
     );
   }
 
-  const isRegistrationSurvey = !!survey.linked_voting_survey_id;
+  const isRegistrationSurvey = !!survey.require_registration;
   const headerTitle = isRegistrationSurvey ? '登録アンケート編集' : '投票アンケート編集';
   const urlPrefix = isRegistrationSurvey ? 'register' : 'vote';
   const surveyUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/${urlPrefix}/${survey.unique_token}`;
-  const linkedVotingSurvey = isRegistrationSurvey
-    ? availableSurveys.find((s) => s.id === survey.linked_voting_survey_id)
-    : null;
-  const linkedRegistrationSurvey = !isRegistrationSurvey
-    ? availableSurveys.find((s) => s.linked_voting_survey_id === survey.id)
-    : null;
+  // 1対N: 投票アンケート候補（require_registration=false の他アンケート）
+  const votingCandidates = availableSurveys.filter((s) => s.id !== survey.id && !s.require_registration);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -509,46 +518,62 @@ export default function SurveyEditPage() {
           </div>
         </div>
 
-        {/* 投票アンケート: 紐づけ登録アンケートカード */}
+        {/* 投票アンケート側は read-only 表示のみ（紐付け編集は登録アンケート側で行う） */}
         {!isRegistrationSurvey && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 sm:p-8 mb-6">
-            <h2 className="text-sm font-bold text-slate-800 mb-4">紐づけ登録アンケート</h2>
-            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              この投票アンケートに紐づける登録アンケートを選択してください。登録アンケートで参加者情報を収集し、投票リンクを発行します。
+            <h2 className="text-sm font-bold text-slate-800 mb-2">紐付け情報</h2>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              この投票アンケートへの紐付けは、登録アンケートの編集画面から行ってください（1対N対応）。
             </p>
-            <div>
-              <label htmlFor="linkedRegistration" className={labelClass}>登録アンケート</label>
-              <select
-                id="linkedRegistration"
-                value={linkedRegistrationSurvey?.id ?? ''}
-                onChange={handleLinkedSurveyChange}
-                className={`${inputClass} cursor-pointer`}
-              >
-                <option value="">なし</option>
-                {availableSurveys
-                  .filter((s) => s.id !== survey.id && (!s.linked_voting_survey_id || s.linked_voting_survey_id === survey.id))
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>{s.title}</option>
-                  ))}
-              </select>
-              {linkedRegistrationSurvey && (
-                <p className="text-xs text-primary-600 mt-2 leading-relaxed">
-                  登録アンケートが紐づけられています。登録アンケートにはメールアドレス（email）タイプの質問が必要です。
-                </p>
-              )}
-            </div>
           </div>
         )}
 
-        {/* 登録アンケート: 紐づけ先投票アンケート情報（読み取り専用） */}
+        {/* 登録アンケート: 1対N で投票アンケートを複数紐付け */}
         {isRegistrationSurvey && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 sm:p-8 mb-6">
-            <h2 className="text-sm font-bold text-slate-800 mb-4">紐づけ先投票アンケート</h2>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              このアンケートは登録用です。紐づけ先: {linkedVotingSurvey?.title || `ID: ${survey.linked_voting_survey_id}`}
+            <h2 className="text-sm font-bold text-slate-800 mb-2">紐付け先投票アンケート（複数選択可）</h2>
+            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+              この登録アンケートに紐付ける投票アンケートを選択してください。登録者には選択した全ての投票アンケートのリンクが届きます。
             </p>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              紐づけの変更は投票アンケートの編集画面から行ってください。
+            <div className="space-y-2">
+              {votingCandidates.length === 0 ? (
+                <p className="text-xs text-slate-400">紐付け可能な投票アンケートがありません。先に投票アンケートを作成してください。</p>
+              ) : (
+                votingCandidates.map((s) => {
+                  const checked = linkedVotingIds.includes(s.id);
+                  const isNewlyAdded = checked; // 既存紐付けかどうかは状態管理しない簡素版
+                  return (
+                    <div key={s.id} className="flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2">
+                      <label className="flex items-center gap-2 cursor-pointer flex-1">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const next = e.target.checked
+                              ? [...linkedVotingIds, s.id]
+                              : linkedVotingIds.filter((id) => id !== s.id);
+                            handleVotingLinksUpdate(next);
+                          }}
+                        />
+                        <span className="text-sm text-slate-700">{s.title}</span>
+                      </label>
+                      {isNewlyAdded && (
+                        <button
+                          type="button"
+                          onClick={() => handleNotifyNewLink(s.id)}
+                          className="px-2 py-1 text-xs bg-primary-50 text-primary-700 rounded hover:bg-primary-100"
+                          title="既存登録者全員に通知メールを送る"
+                        >
+                          通知送信
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+              ※ 後から投票アンケートを追加した場合、「通知送信」ボタンで既存登録者にメール通知できます（重複送信は自動防止）。
             </p>
           </div>
         )}

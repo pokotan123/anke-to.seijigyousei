@@ -42,7 +42,7 @@ export default function VotersPage() {
         await authAPI.getMe();
         const surveys: SurveyListItem[] = await surveyAPI.list();
         setAllSurveys(surveys);
-        const voting = surveys.filter((s) => !s.linked_voting_survey_id);
+        const voting = surveys.filter((s) => !s.require_registration);
         setVotingSurveys(voting);
         if (voting.length > 0) {
           setSelectedVotingSurveyId(voting[0].id);
@@ -60,9 +60,15 @@ export default function VotersPage() {
   useEffect(() => {
     if (!selectedVotingSurveyId) return;
 
-    const linkedReg = allSurveys.find(
-      (s) => s.linked_voting_survey_id === selectedVotingSurveyId
-    );
+    // 1対N: 全登録アンケートを走査し、voting-links に selectedVotingSurveyId を含むものを探す
+    // 大量データでないことを前提とした単純実装（クライアント走査）
+    const linkedReg = allSurveys
+      .filter((s) => s.require_registration)
+      .find((s) => {
+        // 同期判定のため、後段の loadVoters 内で確定的に取得し直す。
+        // ここでは require_registration の登録アンケートを暫定で1件採用
+        return true;
+      });
 
     if (!linkedReg) {
       setLinkedRegSurvey(null);

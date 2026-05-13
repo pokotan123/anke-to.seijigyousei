@@ -39,14 +39,14 @@ git push -u origin main
 3. リポジトリを選択
 4. Root Directory を `backend` に設定
 5. 環境変数を設定：
-   ```
+  ```
    DATABASE_URL=postgresql://user:password@host:port/dbname
    REDIS_URL=redis://host:port
    JWT_SECRET=your-secret-key-here
    PORT=3001
    FRONTEND_URL=https://your-frontend.vercel.app
    NODE_ENV=production
-   ```
+  ```
 6. PostgreSQLとRedisを追加（Add Service）
 
 ### 3. Vercelでフロントエンドをデプロイ
@@ -55,10 +55,10 @@ git push -u origin main
 2. "New Project" → GitHubリポジトリを選択
 3. Root Directory を `frontend` に設定
 4. 環境変数を設定：
-   ```
+  ```
    NEXT_PUBLIC_API_URL=https://your-backend.railway.app
    NEXT_PUBLIC_WS_URL=wss://your-backend.railway.app
-   ```
+  ```
 5. Deploy
 
 ### 4. データベースの初期化
@@ -98,11 +98,11 @@ npm run seed
 
 ## セキュリティチェックリスト
 
-- [ ] JWT_SECRETを強力なランダム文字列に変更
-- [ ] デフォルトのadminパスワードを変更
-- [ ] CORS設定を本番環境のURLに限定
-- [ ] レート制限を適切に設定
-- [ ] HTTPSを有効化（VercelとRailwayは自動）
+- JWT_SECRETを強力なランダム文字列に変更
+- デフォルトのadminパスワードを変更
+- CORS設定を本番環境のURLに限定
+- レート制限を適切に設定
+- HTTPSを有効化（VercelとRailwayは自動）
 
 ## トラブルシューティング
 

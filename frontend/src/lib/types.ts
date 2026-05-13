@@ -12,7 +12,7 @@ export interface Survey {
   registration_start_date: string | null;
   registration_deadline: string | null;
   registration_fields?: { name: string; required: boolean }[];
-  linked_voting_survey_id: number | null;
+  updated_at?: string;
   vote_mail_body?: string | null;
   reminder_mail_body?: string | null;
   registration_mail_body?: string | null;
@@ -61,5 +61,12 @@ export interface SurveyListItem {
   status: string;
   unique_token: string;
   created_at: string;
-  linked_voting_survey_id: number | null;
+  require_registration?: boolean;
+  updated_at?: string;
+}
+
+export interface VotingLinksResponse {
+  registration_survey: { id: number; title: string; updated_at: string };
+  voting_survey_ids: number[];
+  voting_surveys: Survey[];
 }

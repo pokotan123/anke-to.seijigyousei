@@ -104,6 +104,22 @@ export const surveyAPI = {
     const response = await api.post(`/surveys/${id}/regenerate-token`);
     return response.data;
   },
+  // 1対N voting-links
+  listVotingLinks: async (id: number) => {
+    const response = await api.get(`/surveys/${id}/voting-links`);
+    return response.data;
+  },
+  updateVotingLinks: async (id: number, votingSurveyIds: number[], expectedUpdatedAt?: string) => {
+    const response = await api.put(`/surveys/${id}/voting-links`, {
+      voting_survey_ids: votingSurveyIds,
+      expected_updated_at: expectedUpdatedAt,
+    });
+    return response.data;
+  },
+  notifyVotingLink: async (id: number, votingId: number) => {
+    const response = await api.post(`/surveys/${id}/voting-links/${votingId}/notify`);
+    return response.data;
+  },
   exportCSV: async (id: number): Promise<Blob> => {
     // fetch APIを直接使用してblobを確実に取得
     const token = localStorage.getItem('token');

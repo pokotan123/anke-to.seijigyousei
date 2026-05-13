@@ -1,4 +1,7 @@
 import { Resend } from 'resend';
+import { pool } from '../database/connection';
+import { MailOutbox } from '../models/MailOutbox';
+import { SurveyModel, type Survey } from '../models/Survey';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -7,6 +10,8 @@ const rawFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 const FRONTEND_URL = rawFrontendUrl.includes(',')
   ? rawFrontendUrl.split(',').pop()!.trim()
   : rawFrontendUrl;
+const MAIL_MAX_LINK_COUNT = Number(process.env.MAIL_MAX_LINK_COUNT || 5);
+const MAIL_RESEND_PREFIX = process.env.MAIL_RESEND_PREFIX || '[再送] ';
 
 interface SendVoteLinkParams {
   email: string;
@@ -156,6 +161,71 @@ function buildCustomBodyHtml(body: string, tags: TagValues, actionUrl?: string, 
   `;
 }
 
+/** 複数リンク列挙の登録完了メール HTML */
+function buildMultiLinkRegistrationHtml(params: {
+  email: string;
+  registrationTitle: string;
+  links: Array<{ voting_survey_title: string; voter_token: string; end_date: Date | null }>;
+}): string {
+  const visible = params.links.slice(0, MAIL_MAX_LINK_COUNT);
+  const overflow = params.links.length - visible.length;
+
+  const linkRows = visible
+    .map((l, i) => {
+      const url = buildVoteUrl(l.voter_token);
+      const endDateStr = formatEndDate(l.end_date);
+      return `
+        <li style="margin-bottom: 12px;">
+          <div style="font-weight: bold;">${i + 1}. ${escapeHtml(l.voting_survey_title)}</div>
+          <div style="color: #475569; font-size: 14px;">投票期限: ${endDateStr}</div>
+          <a href="${url}" style="display: inline-block; margin-top: 4px; padding: 8px 16px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px;">投票する</a>
+        </li>
+      `;
+    })
+    .join('');
+
+  const overflowMsg = overflow > 0
+    ? `<p style="color: #64748b;">他 ${overflow} 件の投票アンケートがあります。詳細は管理画面でご確認ください。</p>`
+    : '';
+
+  return `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>ご登録ありがとうございます</h2>
+      <p>${escapeHtml(params.email)} 様</p>
+      <p>「${escapeHtml(params.registrationTitle)}」へのご登録が完了しました。</p>
+      <p>以下の投票アンケートにご回答ください（各リンクは1度のみ有効）:</p>
+      <ul style="list-style: none; padding: 0;">${linkRows}</ul>
+      ${overflowMsg}
+      <p style="color: #94a3b8; font-size: 12px;">※迷惑メールフォルダに入る場合があります。</p>
+    </div>
+  `;
+}
+
+/** 後付け追加通知メール HTML */
+function buildNewVotingNotificationHtml(params: {
+  email: string;
+  registrationTitle: string;
+  votingTitle: string;
+  voterToken: string;
+  endDate: Date | null;
+}): string {
+  const url = buildVoteUrl(params.voterToken);
+  const endDateStr = formatEndDate(params.endDate);
+  return `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>新しい投票アンケートのお知らせ</h2>
+      <p>${escapeHtml(params.email)} 様</p>
+      <p>以前「${escapeHtml(params.registrationTitle)}」にご登録いただいた皆様向けに、新しい投票アンケートが公開されました。</p>
+      <table style="border-collapse: collapse; margin: 16px 0;">
+        <tr><td style="padding: 8px; font-weight: bold;">アンケート名</td><td style="padding: 8px;">${escapeHtml(params.votingTitle)}</td></tr>
+        <tr><td style="padding: 8px; font-weight: bold;">投票期限</td><td style="padding: 8px;">${endDateStr}</td></tr>
+      </table>
+      <p><a href="${url}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px;">投票する</a></p>
+      <p style="color: #94a3b8; font-size: 12px;">※このリンクはあなた専用です。1度のみ有効です。</p>
+    </div>
+  `;
+}
+
 export class MailService {
   static async sendVoteLink(params: SendVoteLinkParams): Promise<MailResult> {
     const voteUrl = buildVoteUrl(params.voterToken);
@@ -215,6 +285,105 @@ export class MailService {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '登録完了メール送信に失敗しました';
       return { success: false, error: message };
+    }
+  }
+
+  /**
+   * 1対N: mail_outbox から該当の登録完了メール行を取り出し、複数リンクを列挙して送信
+   */
+  static async processOutboxRegistrationConfirmation(email: string, registrationSurvey: Survey): Promise<void> {
+    const emailHash = MailOutbox.hashEmail(email);
+    const idemKey = `regconf:${registrationSurvey.id}:${emailHash}`;
+    const res = await pool.query(
+      `SELECT * FROM mail_outbox WHERE idempotency_key = $1 AND status IN ('pending','failed') LIMIT 1`,
+      [idemKey]
+    );
+    if (res.rows.length === 0) return;
+    const row = res.rows[0];
+    const payload = row.payload as {
+      registration_survey_id: number;
+      registration_survey_title: string;
+      links: Array<{ voting_survey_id: number; voter_token: string }>;
+    };
+
+    // 投票アンケートのタイトル・期限を解決
+    const enriched = await Promise.all(
+      payload.links.map(async (l) => {
+        const s = await SurveyModel.findById(l.voting_survey_id);
+        return {
+          voting_survey_title: s?.title || '投票アンケート',
+          voter_token: l.voter_token,
+          end_date: s?.end_date || null,
+        };
+      })
+    );
+
+    const html = buildMultiLinkRegistrationHtml({
+      email,
+      registrationTitle: payload.registration_survey_title,
+      links: enriched,
+    });
+
+    const isResend = row.retry_count > 0;
+    const subject = `${isResend ? MAIL_RESEND_PREFIX : ''}【ご登録ありがとうございます】${payload.registration_survey_title}`;
+
+    try {
+      await resend.emails.send({ from: MAIL_FROM, to: email, subject, html });
+      await MailOutbox.markSent(row.id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await MailOutbox.markFailed(row.id, msg);
+    }
+  }
+
+  /**
+   * 1対N 後付け通知: enqueue 済みの new_voting_notification 行を順次送信
+   */
+  static async processOutboxNewVotingNotifications(
+    votingSurveyId: number,
+    issued: Array<{ email: string; voter_token: string }>
+  ): Promise<void> {
+    const votingSurvey = await SurveyModel.findById(votingSurveyId);
+    if (!votingSurvey) return;
+
+    for (const it of issued) {
+      // 該当 outbox 行を取得（最新の pending/failed）
+      const res = await pool.query(
+        `SELECT * FROM mail_outbox
+         WHERE to_email = $1 AND mail_type = 'new_voting_notification'
+           AND (payload->>'voting_survey_id')::int = $2
+           AND status IN ('pending','failed')
+         ORDER BY id DESC LIMIT 1`,
+        [it.email, votingSurveyId]
+      );
+      if (res.rows.length === 0) continue;
+      const row = res.rows[0];
+      const payload = row.payload as {
+        registration_survey_id: number;
+        registration_survey_title: string;
+        voting_survey_id: number;
+        voting_survey_title: string;
+        voter_token: string;
+      };
+
+      const html = buildNewVotingNotificationHtml({
+        email: it.email,
+        registrationTitle: payload.registration_survey_title,
+        votingTitle: payload.voting_survey_title,
+        voterToken: payload.voter_token,
+        endDate: votingSurvey.end_date,
+      });
+
+      const isResend = row.retry_count > 0;
+      const subject = `${isResend ? MAIL_RESEND_PREFIX : ''}【新しい投票アンケート】${payload.voting_survey_title}`;
+
+      try {
+        await resend.emails.send({ from: MAIL_FROM, to: it.email, subject, html });
+        await MailOutbox.markSent(row.id);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        await MailOutbox.markFailed(row.id, msg);
+      }
     }
   }
 }

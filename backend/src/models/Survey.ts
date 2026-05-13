@@ -14,7 +14,6 @@ export interface Survey {
   registration_start_date: Date | null;
   registration_deadline: Date | null;
   registration_fields: any[] | null;
-  linked_voting_survey_id: number | null;
   vote_mail_body: string | null;
   reminder_mail_body: string | null;
   registration_mail_body: string | null;
@@ -35,7 +34,6 @@ export interface CreateSurveyInput {
   registration_start_date?: Date;
   registration_deadline?: Date;
   registration_fields?: any[];
-  linked_voting_survey_id?: number | null;
   vote_mail_body?: string;
   reminder_mail_body?: string;
   registration_mail_body?: string;
@@ -52,7 +50,6 @@ export interface UpdateSurveyInput {
   registration_start_date?: Date | null;
   registration_deadline?: Date | null;
   registration_fields?: any[];
-  linked_voting_survey_id?: number | null;
   vote_mail_body?: string;
   reminder_mail_body?: string;
   registration_mail_body?: string;
@@ -62,8 +59,8 @@ export class SurveyModel {
   static async create(input: CreateSurveyInput): Promise<Survey> {
     const uniqueToken = this.generateUniqueToken();
     const query = `
-      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by, require_registration, registration_message, registration_start_date, registration_deadline, registration_fields, linked_voting_survey_id, vote_mail_body, reminder_mail_body, registration_mail_body)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by, require_registration, registration_message, registration_start_date, registration_deadline, registration_fields, vote_mail_body, reminder_mail_body, registration_mail_body)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
     const values = [
@@ -79,7 +76,6 @@ export class SurveyModel {
       input.registration_start_date || null,
       input.registration_deadline || null,
       input.registration_fields ? JSON.stringify(input.registration_fields) : '[]',
-      input.linked_voting_survey_id || null,
       input.vote_mail_body || null,
       input.reminder_mail_body || null,
       input.registration_mail_body || null,
@@ -160,10 +156,6 @@ export class SurveyModel {
       fields.push(`registration_fields = $${paramCount++}`);
       values.push(JSON.stringify(input.registration_fields));
     }
-    if (input.linked_voting_survey_id !== undefined) {
-      fields.push(`linked_voting_survey_id = $${paramCount++}`);
-      values.push(input.linked_voting_survey_id);
-    }
     if (input.vote_mail_body !== undefined) {
       fields.push(`vote_mail_body = $${paramCount++}`);
       values.push(input.vote_mail_body);
@@ -213,16 +205,84 @@ export class SurveyModel {
     return result.rows[0] || null;
   }
 
+  /** 1対N: 紐付け先の投票アンケートIDを列挙（sort_order ASC） */
+  static async findLinkedVotingSurveyIds(registrationSurveyId: number): Promise<number[]> {
+    const query = `
+      SELECT voting_survey_id FROM survey_voting_links
+      WHERE registration_survey_id = $1
+      ORDER BY sort_order ASC, voting_survey_id ASC
+    `;
+    const result = await pool.query(query, [registrationSurveyId]);
+    return result.rows.map(r => r.voting_survey_id);
+  }
+
+  /** 1対N: 紐付け先の投票アンケートをフル取得 */
+  static async findLinkedVotingSurveys(registrationSurveyId: number): Promise<Survey[]> {
+    const query = `
+      SELECT s.* FROM surveys s
+      INNER JOIN survey_voting_links l ON l.voting_survey_id = s.id
+      WHERE l.registration_survey_id = $1
+      ORDER BY l.sort_order ASC, l.voting_survey_id ASC
+    `;
+    const result = await pool.query(query, [registrationSurveyId]);
+    return result.rows;
+  }
+
+  /** 1対N: 投票アンケートが「いずれかの登録アンケートに紐付いているか」確認 */
+  static async findRegistrationFor(votingSurveyId: number): Promise<Survey | null> {
+    const query = `
+      SELECT s.* FROM surveys s
+      INNER JOIN survey_voting_links l ON l.registration_survey_id = s.id
+      WHERE l.voting_survey_id = $1
+      LIMIT 1
+    `;
+    const result = await pool.query(query, [votingSurveyId]);
+    return result.rows[0] || null;
+  }
+
+  /** 1対N: 登録アンケート一覧（require_registration=true） */
   static async findRegistrationSurveys(): Promise<Survey[]> {
-    const query = 'SELECT * FROM surveys WHERE linked_voting_survey_id IS NOT NULL ORDER BY created_at DESC';
+    const query = `SELECT * FROM surveys WHERE require_registration = true ORDER BY created_at DESC`;
     const result = await pool.query(query);
     return result.rows;
   }
 
-  static async findByLinkedVotingSurveyId(votingSurveyId: number): Promise<Survey | null> {
-    const query = 'SELECT * FROM surveys WHERE linked_voting_survey_id = $1';
-    const result = await pool.query(query, [votingSurveyId]);
-    return result.rows[0] || null;
+  /** 一括置換: registration_survey_id の紐付けを voting_survey_ids[] に同期 */
+  static async replaceVotingLinks(
+    client: any,
+    registrationSurveyId: number,
+    votingSurveyIds: number[]
+  ): Promise<{ added: number[]; removed: number[] }> {
+    const existingRes = await client.query(
+      `SELECT voting_survey_id FROM survey_voting_links WHERE registration_survey_id = $1`,
+      [registrationSurveyId]
+    );
+    const existing = new Set<number>(existingRes.rows.map((r: any) => r.voting_survey_id));
+    const target = new Set<number>(votingSurveyIds);
+    const added: number[] = [...target].filter(id => !existing.has(id));
+    const removed: number[] = [...existing].filter(id => !target.has(id));
+
+    if (removed.length > 0) {
+      await client.query(
+        `DELETE FROM survey_voting_links WHERE registration_survey_id = $1 AND voting_survey_id = ANY($2::int[])`,
+        [registrationSurveyId, removed]
+      );
+    }
+    for (let i = 0; i < added.length; i++) {
+      const vid = added[i];
+      await client.query(
+        `INSERT INTO survey_voting_links (registration_survey_id, voting_survey_id, sort_order)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (registration_survey_id, voting_survey_id) DO NOTHING`,
+        [registrationSurveyId, vid, i]
+      );
+    }
+    // updated_at touch（楽観ロック用）
+    await client.query(
+      `UPDATE surveys SET updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [registrationSurveyId]
+    );
+    return { added, removed };
   }
 
   static async isPublished(survey: Survey): Promise<boolean> {

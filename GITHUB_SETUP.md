@@ -48,16 +48,16 @@ git push -u origin main
 4. 「Add Service」→「PostgreSQL」を追加
 5. 「Add Service」→「Redis」を追加
 6. バックエンドサービスを追加：
-   - Root Directory: `backend`
-   - 環境変数を設定：
-     ```
-     DATABASE_URL=${{PostgreSQL.DATABASE_URL}}
-     REDIS_URL=${{Redis.REDIS_URL}}
-     JWT_SECRET=your-strong-secret-key-here-change-this
-     PORT=3001
-     FRONTEND_URL=https://your-frontend.vercel.app
-     NODE_ENV=production
-     ```
+  - Root Directory: `backend`
+  - 環境変数を設定：
+    ```
+    DATABASE_URL=${{PostgreSQL.DATABASE_URL}}
+    REDIS_URL=${{Redis.REDIS_URL}}
+    JWT_SECRET=your-strong-secret-key-here-change-this
+    PORT=3001
+    FRONTEND_URL=https://your-frontend.vercel.app
+    NODE_ENV=production
+    ```
 7. 「Deploy」をクリック
 
 #### フロントエンド（Vercel）
@@ -66,13 +66,13 @@ git push -u origin main
 2. 「Add New Project」をクリック
 3. リポジトリを選択
 4. 設定：
-   - Framework Preset: Next.js
-   - Root Directory: `frontend`
-   - 環境変数を設定：
-     ```
-     NEXT_PUBLIC_API_URL=https://your-backend.railway.app
-     NEXT_PUBLIC_WS_URL=wss://your-backend.railway.app
-     ```
+  - Framework Preset: Next.js
+  - Root Directory: `frontend`
+  - 環境変数を設定：
+    ```
+    NEXT_PUBLIC_API_URL=https://your-backend.railway.app
+    NEXT_PUBLIC_WS_URL=wss://your-backend.railway.app
+    ```
 5. 「Deploy」をクリック
 
 ### オプションB: Render（無料プランあり）
@@ -83,20 +83,20 @@ git push -u origin main
 2. 「New」→「Web Service」を選択
 3. GitHubリポジトリを接続
 4. 設定：
-   - Name: `survey-backend`
-   - Root Directory: `backend`
-   - Environment: `Node`
-   - Build Command: `npm install && npm run build`
-   - Start Command: `npm start`
-   - 環境変数を設定（Railwayと同様）
+  - Name: `survey-backend`
+  - Root Directory: `backend`
+  - Environment: `Node`
+  - Build Command: `npm install && npm run build`
+  - Start Command: `npm start`
+  - 環境変数を設定（Railwayと同様）
 
 #### フロントエンド
 
 1. 「New」→「Static Site」を選択
 2. 設定：
-   - Root Directory: `frontend`
-   - Build Command: `npm install && npm run build`
-   - Publish Directory: `.next`
+  - Root Directory: `frontend`
+  - Build Command: `npm install && npm run build`
+  - Publish Directory: `.next`
 
 ## ステップ4: データベースの初期化
 
@@ -148,10 +148,10 @@ cd backend && npm run seed
 
 ## セキュリティチェックリスト
 
-- [ ] `JWT_SECRET`を強力なランダム文字列に変更
-- [ ] デフォルトのadminパスワードを変更
-- [ ] 環境変数がGitにコミットされていないか確認
-- [ ] HTTPSが有効になっているか確認
+- `JWT_SECRET`を強力なランダム文字列に変更
+- デフォルトのadminパスワードを変更
+- 環境変数がGitにコミットされていないか確認
+- HTTPSが有効になっているか確認
 
 ## 次のステップ
 

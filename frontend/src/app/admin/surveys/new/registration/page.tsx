@@ -116,7 +116,7 @@ export default function NewRegistrationSurveyPage() {
         title: title.trim(),
         description: description.trim() || null,
         status: 'draft',
-        linked_voting_survey_id: null,
+        require_registration: true,
       });
 
       for (let i = 0; i < questions.length; i++) {

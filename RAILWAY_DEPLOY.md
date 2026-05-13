@@ -4,10 +4,10 @@
 
 `npm: command not found` エラーを修正するため、以下の変更を行いました：
 
-1. **`.nvmrc`ファイルを追加**: Node.js 18を指定
-2. **`package.json`に`engines`フィールドを追加**: Node.jsとnpmのバージョンを明示
-3. **`Dockerfile`を追加**: 代替デプロイ方法として
-4. **`railway.json`を更新**: ビルドコマンドを簡素化
+1. `**.nvmrc`ファイルを追加**: Node.js 18を指定
+2. `**package.json`に`engines`フィールドを追加**: Node.jsとnpmのバージョンを明示
+3. `**Dockerfile`を追加**: 代替デプロイ方法として
+4. `**railway.json`を更新**: ビルドコマンドを簡素化
 
 ## Railwayでの設定確認
 
@@ -31,17 +31,20 @@ NODE_ENV=production
 ### 3. ビルドコマンド
 
 Root Directoryが`backend`に設定されている場合、Railwayは自動的に以下を実行します：
+
 - `npm install`
 - `npm run build`（package.jsonに定義されている場合）
 
 ### 4. スタートコマンド
 
 `railway.json`で指定：
+
 ```
 cd backend && npm start
 ```
 
 または、Root Directoryが`backend`の場合：
+
 ```
 npm start
 ```
@@ -74,4 +77,3 @@ npm start
 5. デプロイ
 
 変更をプッシュすると、自動的に再デプロイが開始されます。
-

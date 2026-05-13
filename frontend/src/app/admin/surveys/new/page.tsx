@@ -7,7 +7,7 @@ import { surveyAPI } from '../../../../lib/api';
 interface SurveyOption {
   readonly id: number;
   readonly title: string;
-  readonly linked_voting_survey_id: number | null;
+  readonly require_registration?: boolean;
 }
 
 export default function NewSurveyPage() {
@@ -27,9 +27,8 @@ export default function NewSurveyPage() {
     const fetchSurveys = async () => {
       try {
         const surveys: SurveyOption[] = await surveyAPI.list();
-        setAvailableSurveys(
-          surveys.filter((s) => !s.linked_voting_survey_id || s.linked_voting_survey_id === null)
-        );
+        // 登録アンケート（require_registration=true）のみを候補に
+        setAvailableSurveys(surveys.filter((s) => !!s.require_registration));
       } catch (error) {
         console.error('Failed to fetch surveys:', error);
       }
@@ -56,13 +55,13 @@ export default function NewSurveyPage() {
         require_registration: false,
         registration_message: null,
         registration_fields: [],
-        linked_voting_survey_id: null,
       });
 
+      // 1対N: 投票アンケートを既存登録アンケートに紐付ける（その登録アンケートの voting-links に追加）
       if (linkedRegistrationId) {
-        await surveyAPI.update(linkedRegistrationId, {
-          linked_voting_survey_id: survey.id,
-        });
+        const current = await surveyAPI.listVotingLinks(linkedRegistrationId);
+        const merged = Array.from(new Set([...(current.voting_survey_ids || []), survey.id]));
+        await surveyAPI.updateVotingLinks(linkedRegistrationId, merged);
       }
 
       router.push(`/admin/surveys/${survey.id}`);
