@@ -161,41 +161,31 @@ function buildCustomBodyHtml(body: string, tags: TagValues, actionUrl?: string, 
   `;
 }
 
-/** 複数リンク列挙の登録完了メール HTML */
+/** 登録完了通知メール HTML（投票リンクは含めない。投票リンクは管理者が「投票リンク一括送信」で別送する） */
 function buildMultiLinkRegistrationHtml(params: {
   email: string;
   registrationTitle: string;
   links: Array<{ voting_survey_title: string; voter_token: string; end_date: Date | null }>;
+  customBody?: string | null;
 }): string {
-  const visible = params.links.slice(0, MAIL_MAX_LINK_COUNT);
-  const overflow = params.links.length - visible.length;
-
-  const linkRows = visible
-    .map((l, i) => {
-      const url = buildVoteUrl(l.voter_token);
-      const endDateStr = formatEndDate(l.end_date);
-      return `
-        <li style="margin-bottom: 12px;">
-          <div style="font-weight: bold;">${i + 1}. ${escapeHtml(l.voting_survey_title)}</div>
-          <div style="color: #475569; font-size: 14px;">投票期限: ${endDateStr}</div>
-          <a href="${url}" style="display: inline-block; margin-top: 4px; padding: 8px 16px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px;">投票する</a>
-        </li>
-      `;
-    })
-    .join('');
-
-  const overflowMsg = overflow > 0
-    ? `<p style="color: #64748b;">他 ${overflow} 件の投票アンケートがあります。詳細は管理画面でご確認ください。</p>`
-    : '';
-
+  // カスタム本文が設定されていれば優先（タグ {survey_title}/{email}/{voting_survey_title} 置換）
+  if (params.customBody && params.customBody.trim()) {
+    const votingTitles = params.links.map((l) => l.voting_survey_title).join('、');
+    return buildCustomBodyHtml(params.customBody, {
+      survey_title: params.registrationTitle,
+      email: params.email,
+      voting_survey_title: votingTitles,
+    });
+  }
+  // デフォルト文面（登録完了通知のみ、投票リンクなし）
   return `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
       <h2>ご登録ありがとうございます</h2>
       <p>${escapeHtml(params.email)} 様</p>
       <p>「${escapeHtml(params.registrationTitle)}」へのご登録が完了しました。</p>
-      <p>以下の投票アンケートにご回答ください（各リンクは1度のみ有効）:</p>
-      <ul style="list-style: none; padding: 0;">${linkRows}</ul>
-      ${overflowMsg}
+      <p>投票アンケートのリンクは、追って管理者よりメールにてお送りします。<br />しばらくお待ちください。</p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+      <p style="color: #94a3b8; font-size: 12px;">※このメールは自動送信です。心当たりがない場合は破棄してください。</p>
       <p style="color: #94a3b8; font-size: 12px;">※迷惑メールフォルダに入る場合があります。</p>
     </div>
   `;
@@ -303,6 +293,7 @@ export class MailService {
     const payload = row.payload as {
       registration_survey_id: number;
       registration_survey_title: string;
+      custom_body?: string | null;
       links: Array<{ voting_survey_id: number; voter_token: string }>;
     };
 
@@ -322,6 +313,7 @@ export class MailService {
       email,
       registrationTitle: payload.registration_survey_title,
       links: enriched,
+      customBody: payload.custom_body || null,
     });
 
     const isResend = row.retry_count > 0;
