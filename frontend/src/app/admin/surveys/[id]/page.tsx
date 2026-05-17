@@ -611,7 +611,7 @@ export default function SurveyEditPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 sm:p-8 mb-6">
           <h2 className="text-sm font-bold text-slate-800 mb-2">メール文面設定</h2>
           <p className="text-xs text-slate-400 mb-5 leading-relaxed">
-            本文中で下記のタグを使用すると、送信時に実際の値に置換されます。投票リンクはメール末尾に自動挿入されます。
+            本文中で下記のタグを使用すると、送信時に実際の値に置換されます。
           </p>
           <div className="space-y-5">
             {!isRegistrationSurvey ? (
@@ -670,8 +670,9 @@ export default function SurveyEditPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                     <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'survey_title'}</code> 登録アンケート名</p>
                     <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'email'}</code> 登録者のメールアドレス</p>
-                    <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'voting_survey_title'}</code> 投票アンケート名</p>
+                    <p className="text-xs text-slate-400"><code className="bg-slate-200 text-slate-600 px-1 rounded">{'voting_survey_title'}</code> 投票アンケート名（複数紐付け時は「、」区切り）</p>
                   </div>
+                  <p className="text-xs text-slate-400 mt-1.5">※ このメールには投票リンクは含まれません。投票リンクは投票者管理画面の「投票リンク一括送信」ボタンから別途送信してください。</p>
                 </div>
               </div>
             )}
