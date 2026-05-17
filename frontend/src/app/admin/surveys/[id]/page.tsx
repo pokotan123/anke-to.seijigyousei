@@ -335,6 +335,7 @@ export default function SurveyEditPage() {
     if (!survey) return;
     try {
       await surveyAPI.updateVotingLinks(survey.id, newVotingIds, survey.updated_at);
+      await loadSurvey();
       const updated = await surveyAPI.listVotingLinks(survey.id);
       setLinkedVotingIds(updated.voting_survey_ids);
     } catch (err: any) {

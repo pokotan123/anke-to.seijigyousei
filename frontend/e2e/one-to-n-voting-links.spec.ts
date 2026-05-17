@@ -114,6 +114,61 @@ test.describe('1対N voting-links E2E', () => {
     expect(res.status()).toBe(400);
   });
 
+  test('回帰: updated_at を毎回 refresh すれば連続3回の voting-links 更新が成功する', async () => {
+    // 2026-05-17 修正: handleVotingLinksUpdate に loadSurvey() を追加。
+    // バグ症状: 同じ updated_at を再利用すると 2回目以降の PUT が楽観ロック 409 で失敗し、
+    //          UI 上「チェックを後から外せない / 入れても紐づかない」現象となる。
+    const req = await request.newContext();
+    const token = await getAdminToken(req);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    const reg = await createSurvey(req, token, {
+      title: 'Reg for optimistic-lock regression',
+      status: 'published',
+      require_registration: true,
+    });
+    const v1 = await createSurvey(req, token, { title: 'V1', status: 'published', require_registration: false });
+    const v2 = await createSurvey(req, token, { title: 'V2', status: 'published', require_registration: false });
+    const v3 = await createSurvey(req, token, { title: 'V3', status: 'published', require_registration: false });
+
+    // 連続3回のチェック入れ・外し（フロント修正の挙動: 毎回 GET /surveys/:id で updated_at を refresh）
+    const sequence: number[][] = [
+      [v1.id],
+      [v1.id, v2.id],
+      [v2.id],
+      [v2.id, v3.id],
+      [],
+      [v1.id, v2.id, v3.id],
+    ];
+
+    for (const ids of sequence) {
+      const fresh = await req.get(`${API_BASE}/surveys/${reg.id}`, { headers: auth });
+      expect(fresh.ok()).toBeTruthy();
+      const cur = await fresh.json();
+      const putRes = await req.put(`${API_BASE}/surveys/${reg.id}/voting-links`, {
+        headers: auth,
+        data: { voting_survey_ids: ids, expected_updated_at: cur.updated_at },
+      });
+      expect(putRes.status(), `voting_survey_ids=${JSON.stringify(ids)} expected 200`).toBe(200);
+      const body = await putRes.json();
+      expect(body.voting_survey_ids).toEqual(ids);
+    }
+
+    // バグ確認: refresh せず古い updated_at を使い回すと2回目で 409
+    const initial = await req.get(`${API_BASE}/surveys/${reg.id}`, { headers: auth });
+    const initialUpd = (await initial.json()).updated_at;
+    const ok = await req.put(`${API_BASE}/surveys/${reg.id}/voting-links`, {
+      headers: auth,
+      data: { voting_survey_ids: [v1.id], expected_updated_at: initialUpd },
+    });
+    expect(ok.status()).toBe(200);
+    const stale = await req.put(`${API_BASE}/surveys/${reg.id}/voting-links`, {
+      headers: auth,
+      data: { voting_survey_ids: [v2.id], expected_updated_at: initialUpd },
+    });
+    expect(stale.status()).toBe(409);
+  });
+
   test('失敗系: PUT /voting-links を JWT なし → 401', async () => {
     const req = await request.newContext();
     const res = await req.put(`${API_BASE}/surveys/1/voting-links`, {
