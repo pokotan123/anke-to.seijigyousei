@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import AdminHeader from '../../../components/admin/AdminHeader';
 import SurveyCard from '../../../components/admin/SurveyCard';
 import SurveyTypeSelectorModal from '../../../components/admin/SurveyTypeSelectorModal';
+import { useConfirm } from '../../../components/admin/ConfirmDialog';
 import { surveyAPI, authAPI } from '../../../lib/api';
 import type { SurveyListItem } from '../../../lib/types';
 
@@ -12,6 +13,7 @@ type Tab = 'voting' | 'registration';
 
 export default function DashboardPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [surveys, setSurveys] = useState<SurveyListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('voting');
@@ -46,7 +48,13 @@ export default function DashboardPage() {
   const handleDelete = useCallback(async (surveyId: number, surveyTitle: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm(`「${surveyTitle}」を削除しますか？\nこの操作は取り消せません。`)) return;
+    const ok = await confirm({
+      title: 'アンケートを削除',
+      message: `「${surveyTitle}」を削除しますか？\nこの操作は取り消せません。`,
+      confirmLabel: '削除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await surveyAPI.delete(surveyId);
       alert('アンケートを削除しました');
@@ -56,7 +64,7 @@ export default function DashboardPage() {
       const message = err instanceof Error ? err.message : '削除に失敗しました';
       alert(message);
     }
-  }, []);
+  }, [confirm]);
 
   const handleExportCSV = useCallback(async (surveyId: number, surveyTitle: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -84,7 +92,12 @@ export default function DashboardPage() {
   const handleDuplicate = useCallback(async (surveyId: number, surveyTitle: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm(`「${surveyTitle}」を複製しますか？\n質問と選択肢のみコピーされます（投票・回答データはコピーされません）。`)) return;
+    const ok = await confirm({
+      title: 'アンケートを複製',
+      message: `「${surveyTitle}」を複製しますか？\n質問と選択肢のみコピーされます（投票・回答データはコピーされません）。`,
+      confirmLabel: '複製',
+    });
+    if (!ok) return;
     try {
       const newSurvey = await surveyAPI.duplicate(surveyId);
       router.push(`/admin/surveys/${newSurvey.id}`);
@@ -92,7 +105,7 @@ export default function DashboardPage() {
       const message = err instanceof Error ? err.message : '複製に失敗しました';
       alert(message);
     }
-  }, [router]);
+  }, [router, confirm]);
 
   const handleVoters = useCallback((surveyId: number, e: React.MouseEvent) => {
     e.preventDefault();

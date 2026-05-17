@@ -223,15 +223,15 @@ test.describe('アンケート複製 UI', () => {
     await page.locator('button[type="submit"]').click();
     await page.waitForURL('**/admin/dashboard');
 
-    // 複製確認ダイアログを自動 OK
-    page.once('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('UI複製テスト用アンケート');
-      await dialog.accept();
-    });
-
     // 該当行の複製ボタンをクリック
     const card = page.locator('a').filter({ hasText: 'UI複製テスト用アンケート' }).first();
     await card.locator('button', { hasText: '複製' }).click();
+
+    // 独自確認モーダルが表示される → OK を押す
+    const dialog = page.getByTestId('confirm-dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('UI複製テスト用アンケート');
+    await dialog.getByTestId('confirm-dialog-ok').click();
 
     // 編集画面に遷移
     await page.waitForURL(/\/admin\/surveys\/\d+/);

@@ -7,6 +7,7 @@ import type { Survey, Question, Option, SurveyListItem } from '../../../../lib/t
 import QuestionList from '../../../../components/admin/QuestionList';
 import QuestionModal from '../../../../components/admin/QuestionModal';
 import OptionModal from '../../../../components/admin/OptionModal';
+import { useConfirm } from '../../../../components/admin/ConfirmDialog';
 
 const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800';
 const labelClass = 'block text-sm font-medium text-slate-600 mb-1.5';
@@ -48,6 +49,7 @@ export default function SurveyEditPage() {
   const router = useRouter();
   const params = useParams();
   const surveyId = parseInt(params.id as string);
+  const confirm = useConfirm();
 
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,7 +159,13 @@ export default function SurveyEditPage() {
   };
 
   const handleRegenerateToken = async () => {
-    if (!confirm('URLトークンを再発行しますか？旧URLは無効になります。')) return;
+    const ok = await confirm({
+      title: 'URLトークンを再発行',
+      message: 'URLトークンを再発行しますか？旧URLは無効になります。',
+      confirmLabel: '再発行',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       const updated = await surveyAPI.regenerateToken(surveyId);
       if (updated && survey) {
@@ -195,7 +203,13 @@ export default function SurveyEditPage() {
   };
 
   const handleDeleteQuestion = async (questionId: number) => {
-    if (!confirm('この質問を削除しますか？')) return;
+    const ok = await confirm({
+      title: '質問を削除',
+      message: 'この質問を削除しますか？',
+      confirmLabel: '削除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await questionAPI.delete(questionId);
       await loadSurvey();
@@ -242,7 +256,13 @@ export default function SurveyEditPage() {
   };
 
   const handleDeleteOption = async (optionId: number) => {
-    if (!confirm('この選択肢を削除しますか？')) return;
+    const ok = await confirm({
+      title: '選択肢を削除',
+      message: 'この選択肢を削除しますか？',
+      confirmLabel: '削除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await questionAPI.deleteOption(optionId);
       await loadSurvey();
@@ -325,7 +345,12 @@ export default function SurveyEditPage() {
   /** 1対N: 後付けで追加した投票アンケートを既存登録者に通知 */
   const handleNotifyNewLink = async (votingId: number) => {
     if (!survey) return;
-    if (!confirm('この投票アンケートを既存登録者全員にメール通知しますか？')) return;
+    const ok = await confirm({
+      title: '投票リンクを通知',
+      message: 'この投票アンケートを既存登録者全員にメール通知しますか？',
+      confirmLabel: '通知',
+    });
+    if (!ok) return;
     try {
       const result = await surveyAPI.notifyVotingLink(survey.id, votingId);
       alert(`通知メールを ${result.enqueued} 件キューに追加しました（スキップ: ${result.skipped} 件）`);
