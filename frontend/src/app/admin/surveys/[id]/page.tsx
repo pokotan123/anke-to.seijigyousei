@@ -424,26 +424,26 @@ export default function SurveyEditPage() {
               />
             </div>
 
-            {!isRegistrationSurvey && (
-              <>
-                <div>
-                  <label htmlFor="status" className={labelClass}>ステータス</label>
-                  <select
-                    id="status"
-                    value={survey.status}
-                    onChange={(e) => setSurvey({ ...survey, status: e.target.value })}
-                    className={`${inputClass} cursor-pointer`}
-                  >
-                    <option value="draft">下書き</option>
-                    <option value="published">公開中</option>
-                    <option value="closed">終了</option>
-                  </select>
-                </div>
+            <div>
+              <label htmlFor="status" className={labelClass}>ステータス</label>
+              <select
+                id="status"
+                value={survey.status}
+                onChange={(e) => setSurvey({ ...survey, status: e.target.value })}
+                className={`${inputClass} cursor-pointer`}
+              >
+                <option value="draft">下書き</option>
+                <option value="published">公開中</option>
+                <option value="closed">終了</option>
+              </select>
+            </div>
 
-                {/* 日程設定 */}
-                <div className="border-t border-slate-100 pt-5">
-                  <h3 className="text-sm font-bold text-slate-700 mb-3">日程設定</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* 日程設定（種別ごとに表示する項目を切り替え） */}
+            <div className="border-t border-slate-100 pt-5">
+              <h3 className="text-sm font-bold text-slate-700 mb-3">日程設定</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {isRegistrationSurvey ? (
+                  <>
                     <div>
                       <label htmlFor="registrationStartDate" className={labelClass}>登録開始日時</label>
                       <input
@@ -464,6 +464,9 @@ export default function SurveyEditPage() {
                         className={inputClass}
                       />
                     </div>
+                  </>
+                ) : (
+                  <>
                     <div>
                       <label htmlFor="startDate" className={labelClass}>投票開始日時</label>
                       <input
@@ -484,21 +487,21 @@ export default function SurveyEditPage() {
                         className={inputClass}
                       />
                     </div>
-                  </div>
-                </div>
+                  </>
+                )}
+              </div>
+            </div>
 
-                <div>
-                  <label htmlFor="description" className={labelClass}>説明</label>
-                  <textarea
-                    id="description"
-                    value={survey.description || ''}
-                    onChange={(e) => setSurvey({ ...survey, description: e.target.value })}
-                    rows={4}
-                    className={`${inputClass} resize-none leading-relaxed`}
-                  />
-                </div>
-              </>
-            )}
+            <div>
+              <label htmlFor="description" className={labelClass}>説明</label>
+              <textarea
+                id="description"
+                value={survey.description || ''}
+                onChange={(e) => setSurvey({ ...survey, description: e.target.value })}
+                rows={4}
+                className={`${inputClass} resize-none leading-relaxed`}
+              />
+            </div>
           </div>
 
           <div className="flex gap-3 pt-6 mt-6 border-t border-slate-100">
