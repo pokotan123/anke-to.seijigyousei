@@ -193,6 +193,83 @@ export class SurveyModel {
     return (result.rowCount ?? 0) > 0;
   }
 
+  /**
+   * 既存アンケートの「設定 + 質問 + 選択肢」をコピーして新規アンケートを作成する。
+   * voters / votes / survey_voting_links はコピーしない。
+   * status は常に draft / 日付系は NULL / unique_token は新規発行。
+   */
+  static async duplicate(sourceId: number, createdBy: number): Promise<Survey | null> {
+    const source = await this.findById(sourceId);
+    if (!source) return null;
+
+    const newToken = this.generateUniqueToken();
+    const newTitle = `${source.title}のコピー`;
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const insertSurveyRes = await client.query(
+        `INSERT INTO surveys (
+          unique_token, title, description, status,
+          start_date, end_date,
+          require_registration, registration_message,
+          registration_start_date, registration_deadline, registration_fields,
+          vote_mail_body, reminder_mail_body, registration_mail_body, created_by
+        ) VALUES (
+          $1, $2, $3, 'draft',
+          NULL, NULL,
+          $4, $5,
+          NULL, NULL, $6,
+          $7, $8, $9, $10
+        ) RETURNING *`,
+        [
+          newToken,
+          newTitle,
+          source.description,
+          source.require_registration,
+          source.registration_message,
+          JSON.stringify(source.registration_fields ?? []),
+          source.vote_mail_body,
+          source.reminder_mail_body,
+          source.registration_mail_body,
+          createdBy,
+        ]
+      );
+      const newSurvey: Survey = insertSurveyRes.rows[0];
+
+      const questionsRes = await client.query(
+        `SELECT id, question_text, question_type, "order", is_required
+         FROM questions WHERE survey_id = $1 ORDER BY "order" ASC, id ASC`,
+        [sourceId]
+      );
+
+      for (const q of questionsRes.rows) {
+        const newQuestionRes = await client.query(
+          `INSERT INTO questions (survey_id, question_text, question_type, "order", is_required)
+           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+          [newSurvey.id, q.question_text, q.question_type, q.order, q.is_required]
+        );
+        const newQuestionId = newQuestionRes.rows[0].id;
+
+        await client.query(
+          `INSERT INTO options (question_id, option_text, "order")
+           SELECT $1, option_text, "order"
+           FROM options WHERE question_id = $2 ORDER BY "order" ASC, id ASC`,
+          [newQuestionId, q.id]
+        );
+      }
+
+      await client.query('COMMIT');
+      return newSurvey;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
   static async regenerateToken(id: number): Promise<Survey | null> {
     const uniqueToken = this.generateUniqueToken();
     const query = `

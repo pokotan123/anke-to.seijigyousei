@@ -10,10 +10,11 @@ interface SurveyCardProps {
   linkedSurvey?: SurveyListItem;
   onDelete: (surveyId: number, surveyTitle: string, e: React.MouseEvent) => void;
   onExportCSV: (surveyId: number, surveyTitle: string, e: React.MouseEvent) => void;
+  onDuplicate: (surveyId: number, surveyTitle: string, e: React.MouseEvent) => void;
   onVoters?: (surveyId: number, e: React.MouseEvent) => void;
 }
 
-export default function SurveyCard({ survey, type, linkedSurvey, onDelete, onExportCSV, onVoters }: SurveyCardProps) {
+export default function SurveyCard({ survey, type, linkedSurvey, onDelete, onExportCSV, onDuplicate, onVoters }: SurveyCardProps) {
   const urlPrefix = type === 'voting' ? 'vote' : 'register';
   const accentColor = type === 'voting' ? 'primary' : 'teal';
 
@@ -60,6 +61,12 @@ export default function SurveyCard({ survey, type, linkedSurvey, onDelete, onExp
             className="px-2.5 py-1.5 text-xs text-emerald-600 hover:bg-emerald-50 rounded-md border border-emerald-200 cursor-pointer transition-colors"
           >
             CSV
+          </button>
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDuplicate(survey.id, survey.title, e); }}
+            className="px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-md border border-slate-200 cursor-pointer transition-colors"
+          >
+            複製
           </button>
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(survey.id, survey.title, e); }}

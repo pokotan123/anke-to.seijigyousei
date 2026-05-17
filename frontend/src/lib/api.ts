@@ -104,6 +104,10 @@ export const surveyAPI = {
     const response = await api.post(`/surveys/${id}/regenerate-token`);
     return response.data;
   },
+  duplicate: async (id: number) => {
+    const response = await api.post(`/surveys/${id}/duplicate`);
+    return response.data;
+  },
   // 1対N voting-links
   listVotingLinks: async (id: number) => {
     const response = await api.get(`/surveys/${id}/voting-links`);

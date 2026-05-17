@@ -214,6 +214,41 @@ router.delete('/:id', authenticateToken, auditLogMiddleware, requireAdmin, async
   }
 });
 
+// 管理API: アンケート複製（設定 + 質問 + 選択肢のみコピー / voters・votes・voting-links はコピーしない）
+router.post('/:id/duplicate', authenticateToken, auditLogMiddleware, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid survey id' });
+    }
+
+    const source = await SurveyModel.findById(id);
+    if (!source) {
+      return res.status(404).json({ error: 'Survey not found' });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const newSurvey = await SurveyModel.duplicate(id, req.user.id);
+    if (!newSurvey) {
+      return res.status(500).json({ error: 'Failed to duplicate survey' });
+    }
+
+    auditLog(req, 'survey.duplicate', newSurvey.id, {
+      source_survey_id: id,
+      source_title: source.title,
+      new_title: newSurvey.title,
+    });
+
+    res.status(201).json(newSurvey);
+  } catch (error: any) {
+    console.error('Duplicate survey error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // 管理API: URLトークン再発行
 router.post('/:id/regenerate-token', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {

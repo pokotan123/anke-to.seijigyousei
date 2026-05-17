@@ -81,6 +81,19 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const handleDuplicate = useCallback(async (surveyId: number, surveyTitle: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`「${surveyTitle}」を複製しますか？\n質問と選択肢のみコピーされます（投票・回答データはコピーされません）。`)) return;
+    try {
+      const newSurvey = await surveyAPI.duplicate(surveyId);
+      router.push(`/admin/surveys/${newSurvey.id}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '複製に失敗しました';
+      alert(message);
+    }
+  }, [router]);
+
   const handleVoters = useCallback((surveyId: number, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -185,6 +198,7 @@ export default function DashboardPage() {
                   linkedSurvey={undefined}
                   onDelete={handleDelete}
                   onExportCSV={handleExportCSV}
+                  onDuplicate={handleDuplicate}
                   onVoters={activeTab === 'voting' ? handleVoters : undefined}
                 />
               );
