@@ -6,7 +6,7 @@ import { SurveyModel } from '../models/Survey';
 import { VoterModel } from '../models/Voter';
 import { QuestionModel } from '../models/Question';
 import { OptionModel } from '../models/Option';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
 import { auditLogMiddleware } from '../middleware/auditLog';
 import { redisClient } from '../database/redis';
 import { pool } from '../database/connection';
@@ -355,6 +355,161 @@ router.get('/', authenticateToken, async (req: AuthRequest, res): Promise<void> 
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// ---------------------------------------------------------------------------
+// 一時管理者API: 指定 survey_id の voters + votes を backup → 削除
+// ※ 2026-05-18 ID=5/6 クリーンアップタスク専用、完了後にコード revert 予定
+// ---------------------------------------------------------------------------
+router.post(
+  '/admin/cleanup-by-survey-ids',
+  authenticateToken,
+  auditLogMiddleware,
+  requireAdmin,
+  async (req: AuthRequest, res): Promise<void> => {
+    try {
+      const { survey_ids, voters_backup_table, votes_backup_table, dry_run } =
+        req.body as {
+          survey_ids?: unknown;
+          voters_backup_table?: unknown;
+          votes_backup_table?: unknown;
+          dry_run?: unknown;
+        };
+
+      if (
+        !Array.isArray(survey_ids) ||
+        survey_ids.length === 0 ||
+        !survey_ids.every(
+          (x) => typeof x === 'number' && Number.isInteger(x) && x > 0,
+        )
+      ) {
+        res.status(400).json({
+          error: 'survey_ids must be non-empty array of positive integers',
+        });
+        return;
+      }
+      if (
+        typeof voters_backup_table !== 'string' ||
+        !/^voters_backup_[a-z0-9_]+$/.test(voters_backup_table)
+      ) {
+        res.status(400).json({
+          error: 'voters_backup_table must match /^voters_backup_[a-z0-9_]+$/',
+        });
+        return;
+      }
+      if (
+        typeof votes_backup_table !== 'string' ||
+        !/^votes_backup_[a-z0-9_]+$/.test(votes_backup_table)
+      ) {
+        res.status(400).json({
+          error: 'votes_backup_table must match /^votes_backup_[a-z0-9_]+$/',
+        });
+        return;
+      }
+      const isDryRun = dry_run !== false;
+
+      const client = await pool.connect();
+      try {
+        if (isDryRun) {
+          const votersCntRes = await client.query(
+            'SELECT COUNT(*)::int AS c FROM voters WHERE survey_id = ANY($1::int[])',
+            [survey_ids],
+          );
+          const votesCntRes = await client.query(
+            'SELECT COUNT(*)::int AS c FROM votes WHERE survey_id = ANY($1::int[])',
+            [survey_ids],
+          );
+          const votersSampleRes = await client.query(
+            'SELECT id, survey_id, email, status, registration_survey_id, registered_at, voted_at, ip_address FROM voters WHERE survey_id = ANY($1::int[]) ORDER BY id',
+            [survey_ids],
+          );
+          const votesSampleRes = await client.query(
+            'SELECT id, survey_id, question_id, option_id, voter_token, session_id, ip_address, voted_at FROM votes WHERE survey_id = ANY($1::int[]) ORDER BY id',
+            [survey_ids],
+          );
+          res.json({
+            dry_run: true,
+            survey_ids,
+            voters_count: votersCntRes.rows[0].c,
+            votes_count: votesCntRes.rows[0].c,
+            voters_rows: votersSampleRes.rows,
+            votes_rows: votesSampleRes.rows,
+          });
+          return;
+        }
+
+        await client.query('BEGIN');
+
+        // 1. backup table 作成（既存なら何もしない）
+        await client.query(
+          `CREATE TABLE IF NOT EXISTS ${voters_backup_table} (LIKE voters INCLUDING ALL)`,
+        );
+        await client.query(
+          `CREATE TABLE IF NOT EXISTS ${votes_backup_table} (LIKE votes INCLUDING ALL)`,
+        );
+
+        // 2. backup INSERT
+        const votersBackupRes = await client.query(
+          `INSERT INTO ${voters_backup_table} SELECT * FROM voters WHERE survey_id = ANY($1::int[]) RETURNING id`,
+          [survey_ids],
+        );
+        const votesBackupRes = await client.query(
+          `INSERT INTO ${votes_backup_table} SELECT * FROM votes WHERE survey_id = ANY($1::int[]) RETURNING id`,
+          [survey_ids],
+        );
+
+        // 3. 削除前メールリスト取得
+        const deletedEmailsRes = await client.query(
+          'SELECT email FROM voters WHERE survey_id = ANY($1::int[]) ORDER BY email',
+          [survey_ids],
+        );
+
+        // 4. DELETE (votes 先, voters 後)
+        const votesDelRes = await client.query(
+          'DELETE FROM votes WHERE survey_id = ANY($1::int[]) RETURNING id',
+          [survey_ids],
+        );
+        const votersDelRes = await client.query(
+          'DELETE FROM voters WHERE survey_id = ANY($1::int[]) RETURNING id',
+          [survey_ids],
+        );
+
+        // 5. 削除後確認
+        const votersRemainRes = await client.query(
+          'SELECT COUNT(*)::int AS c FROM voters WHERE survey_id = ANY($1::int[])',
+          [survey_ids],
+        );
+        const votesRemainRes = await client.query(
+          'SELECT COUNT(*)::int AS c FROM votes WHERE survey_id = ANY($1::int[])',
+          [survey_ids],
+        );
+
+        await client.query('COMMIT');
+
+        res.json({
+          dry_run: false,
+          survey_ids,
+          voters_backup_table,
+          votes_backup_table,
+          voters_backed_up: votersBackupRes.rowCount,
+          votes_backed_up: votesBackupRes.rowCount,
+          voters_deleted: votersDelRes.rowCount,
+          votes_deleted: votesDelRes.rowCount,
+          voters_remaining: votersRemainRes.rows[0].c,
+          votes_remaining: votesRemainRes.rows[0].c,
+          deleted_emails: deletedEmailsRes.rows.map((r) => r.email),
+        });
+      } catch (txError) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw txError;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ error: msg });
+    }
+  },
+);
 
 export default router;
 
