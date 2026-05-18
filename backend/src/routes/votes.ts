@@ -6,7 +6,7 @@ import { SurveyModel } from '../models/Survey';
 import { VoterModel } from '../models/Voter';
 import { QuestionModel } from '../models/Question';
 import { OptionModel } from '../models/Option';
-import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { auditLogMiddleware } from '../middleware/auditLog';
 import { redisClient } from '../database/redis';
 import { pool } from '../database/connection';
@@ -353,76 +353,6 @@ router.get('/', authenticateToken, async (req: AuthRequest, res): Promise<void> 
   } catch (error: any) {
     console.error('List votes error:', error);
     res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// 一時管理者API: 指定 vote_id を backup → 削除 (匿名投票穴の被害クリーンアップ用)
-// ※ 2026-05-18 のクリーンアップタスク専用、完了後にコード revert 予定
-// ---------------------------------------------------------------------------
-router.post('/admin/cleanup-by-ids', authenticateToken, auditLogMiddleware, requireAdmin, async (req: AuthRequest, res): Promise<void> => {
-  try {
-    const { ids, backup_table } = req.body as { ids?: unknown; backup_table?: unknown };
-    if (!Array.isArray(ids) || ids.length === 0 || !ids.every((x) => typeof x === 'number' && Number.isInteger(x) && x > 0)) {
-      res.status(400).json({ error: 'ids must be non-empty array of positive integers' });
-      return;
-    }
-    if (typeof backup_table !== 'string' || !/^votes_backup_[a-z0-9_]+$/.test(backup_table)) {
-      res.status(400).json({ error: 'backup_table must match /^votes_backup_[a-z0-9_]+$/' });
-      return;
-    }
-
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      // 1. 削除対象を SELECT で確認（レスポンスに含める）
-      const beforeRes = await client.query(
-        'SELECT * FROM votes WHERE id = ANY($1::int[]) ORDER BY id',
-        [ids],
-      );
-
-      // 2. backup table 作成（既存なら何もしない）
-      await client.query(`CREATE TABLE IF NOT EXISTS ${backup_table} (LIKE votes INCLUDING ALL)`);
-
-      // 3. backup INSERT
-      const insertRes = await client.query(
-        `INSERT INTO ${backup_table} SELECT * FROM votes WHERE id = ANY($1::int[]) RETURNING id`,
-        [ids],
-      );
-
-      // 4. DELETE
-      const delRes = await client.query(
-        'DELETE FROM votes WHERE id = ANY($1::int[]) RETURNING id',
-        [ids],
-      );
-
-      // 5. 削除後確認
-      const afterRes = await client.query(
-        'SELECT COUNT(*)::int AS remaining FROM votes WHERE id = ANY($1::int[])',
-        [ids],
-      );
-
-      await client.query('COMMIT');
-
-      res.json({
-        requested_ids: ids,
-        backup_table,
-        backed_up_count: insertRes.rowCount,
-        deleted_count: delRes.rowCount,
-        deleted_ids: delRes.rows.map((r) => r.id),
-        remaining_after_delete: afterRes.rows[0].remaining,
-        rows_before: beforeRes.rows,
-      });
-    } catch (txError) {
-      await client.query('ROLLBACK');
-      throw txError;
-    } finally {
-      client.release();
-    }
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ error: msg });
   }
 });
 
