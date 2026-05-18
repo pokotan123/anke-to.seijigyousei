@@ -251,4 +251,61 @@ test.describe('1対N voting-links E2E', () => {
     // 2回目: voter row は既に存在するため新規 INSERT スキップ、outbox も同一キーでスキップ
     expect(body2.enqueued).toBe(0);
   });
+
+  test('失敗系: 登録アンケートに紐付いた投票アンケートへの匿名投票 → 403 (メール認証リンク必須)', async () => {
+    const req = await request.newContext();
+    const token = await getAdminToken(req);
+
+    // 投票アンケート作成（require_registration=false の独立 entity）
+    const voting = await createSurvey(req, token, {
+      title: 'Linked Voting (anonymous blocked)',
+      status: 'published',
+      require_registration: false,
+    });
+
+    // 質問+選択肢追加
+    const qRes = await req.post(`${API_BASE}/questions`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        survey_id: voting.id,
+        question_text: 'Q1',
+        question_type: 'single_choice',
+        order: 0,
+        is_required: true,
+      },
+    });
+    expect(qRes.ok()).toBeTruthy();
+    const q = await qRes.json();
+
+    const optRes = await req.post(`${API_BASE}/questions/${q.id}/options`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { option_text: 'A', order: 0 },
+    });
+    expect(optRes.ok()).toBeTruthy();
+    const opt = await optRes.json();
+
+    // 登録アンケート作成 + 紐付け
+    const reg = await createSurvey(req, token, {
+      title: 'Reg for Linked Voting',
+      status: 'published',
+      require_registration: true,
+    });
+    const linkRes = await req.put(`${API_BASE}/surveys/${reg.id}/voting-links`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { voting_survey_ids: [voting.id] },
+    });
+    expect(linkRes.ok()).toBeTruthy();
+
+    // 投票アンケートの unique_token で匿名投票試行 → 403
+    const voteRes = await req.post(`${API_BASE}/votes`, {
+      data: {
+        survey_token: voting.unique_token,
+        question_id: q.id,
+        option_id: opt.id,
+      },
+    });
+    expect(voteRes.status()).toBe(403);
+    const errBody = await voteRes.json();
+    expect(errBody.error).toContain('メール認証リンク');
+  });
 });

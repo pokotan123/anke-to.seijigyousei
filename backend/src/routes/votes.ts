@@ -78,6 +78,14 @@ router.post('/', async (req, res): Promise<void> => {
       return;
     }
 
+    // 1対N: 投票アンケートが登録アンケートに紐付いている場合、匿名投票を拒否
+    // (メール認証経由の voter_token を使った POST /votes/batch のみが正規ルート)
+    const registrationParent = await SurveyModel.findRegistrationFor(survey.id);
+    if (registrationParent) {
+      res.status(403).json({ error: 'この投票には登録アンケート経由のメール認証リンクが必要です' });
+      return;
+    }
+
     const question = await QuestionModel.findById(question_id);
     if (!question || question.survey_id !== survey.id) {
       res.status(404).json({ error: 'Question not found' });
