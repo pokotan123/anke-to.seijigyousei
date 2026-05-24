@@ -43,7 +43,7 @@ export class OptionModel {
   }
 
   static async findByQuestionId(questionId: number): Promise<Option[]> {
-    const query = 'SELECT * FROM options WHERE question_id = $1 ORDER BY "order" ASC';
+    const query = 'SELECT * FROM options WHERE question_id = $1 ORDER BY "order" ASC, id ASC';
     const result = await pool.query(query, [questionId]);
     return result.rows;
   }

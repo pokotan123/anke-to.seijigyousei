@@ -52,7 +52,7 @@ export class QuestionModel {
   }
 
   static async findBySurveyId(surveyId: number): Promise<Question[]> {
-    const query = 'SELECT * FROM questions WHERE survey_id = $1 ORDER BY "order" ASC';
+    const query = 'SELECT * FROM questions WHERE survey_id = $1 ORDER BY "order" ASC, id ASC';
     const result = await pool.query(query, [surveyId]);
     return result.rows;
   }

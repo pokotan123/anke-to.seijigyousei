@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { surveyAPI, questionAPI, authAPI } from '../../../../lib/api';
+import { reorder } from '../../../../lib/reorder';
 import type { Survey, Question, Option, SurveyListItem } from '../../../../lib/types';
 import QuestionList from '../../../../components/admin/QuestionList';
 import QuestionModal from '../../../../components/admin/QuestionModal';
@@ -190,7 +191,7 @@ export default function SurveyEditPage() {
       id: 0,
       question_text: '',
       question_type: 'single_choice',
-      order: survey?.questions.length || 0,
+      order: (survey?.questions.length ?? 0) + 1,
       is_required: false,
       options: [],
     });
@@ -248,7 +249,9 @@ export default function SurveyEditPage() {
   };
 
   const handleAddOption = (questionId: number) => {
-    setEditingOption({ questionId, option: { id: 0, option_text: '', order: 0 } });
+    const question = survey?.questions.find((q) => q.id === questionId);
+    const nextOrder = (question?.options?.length ?? 0) + 1;
+    setEditingOption({ questionId, option: { id: 0, option_text: '', order: nextOrder } });
   };
 
   const handleEditOption = (questionId: number, option: Option) => {
@@ -294,36 +297,42 @@ export default function SurveyEditPage() {
     }
   };
 
+  /**
+   * 質問を1つ上/下に移動する。
+   * 並べ替えた配列を作り、全質問の order を 1..N で振り直す（再採番方式）。
+   * order が重複・欠落していても操作のたびに正しい連番へ自己修復される。
+   */
   const handleMoveQuestion = async (questionId: number, direction: 'up' | 'down') => {
     if (!survey) return;
     const currentIndex = survey.questions.findIndex((q) => q.id === questionId);
-    if (currentIndex === -1) return;
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex < 0 || newIndex >= survey.questions.length) return;
-    const currentQuestion = survey.questions[currentIndex];
-    const targetQuestion = survey.questions[newIndex];
+    const reordered = reorder(survey.questions, currentIndex, direction);
+    if (reordered === survey.questions) return;
     try {
-      await questionAPI.update(currentQuestion.id, { order: targetQuestion.order });
-      await questionAPI.update(targetQuestion.id, { order: currentQuestion.order });
+      await Promise.all(
+        reordered.map((q, i) => questionAPI.update(q.id, { order: i + 1 }))
+      );
       await loadSurvey();
     } catch (err: any) {
       alert(err.response?.data?.error || '順序の変更に失敗しました');
     }
   };
 
+  /**
+   * 選択肢を1つ上/下に移動する。
+   * 並べ替えた配列を作り、全選択肢の order を 1..N で振り直す（再採番方式）。
+   * order が重複・欠落していても操作のたびに正しい連番へ自己修復される。
+   */
   const handleMoveOption = async (questionId: number, optionId: number, direction: 'up' | 'down') => {
     if (!survey) return;
     const question = survey.questions.find((q) => q.id === questionId);
     if (!question?.options) return;
     const currentIndex = question.options.findIndex((o) => o.id === optionId);
-    if (currentIndex === -1) return;
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex < 0 || newIndex >= question.options.length) return;
-    const currentOption = question.options[currentIndex];
-    const targetOption = question.options[newIndex];
+    const reordered = reorder(question.options, currentIndex, direction);
+    if (reordered === question.options) return;
     try {
-      await questionAPI.updateOption(currentOption.id, { order: targetOption.order });
-      await questionAPI.updateOption(targetOption.id, { order: currentOption.order });
+      await Promise.all(
+        reordered.map((o, i) => questionAPI.updateOption(o.id, { order: i + 1 }))
+      );
       await loadSurvey();
     } catch (err: any) {
       alert(err.response?.data?.error || '順序の変更に失敗しました');
