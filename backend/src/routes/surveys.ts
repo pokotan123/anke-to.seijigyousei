@@ -334,7 +334,7 @@ router.get('/:id/export/csv', authenticateToken, auditLogMiddleware, requireAdmi
       vote.answer_text || '',
       vote.session_id,
       vote.ip_address || '',
-      new Date(vote.voted_at).toLocaleString('ja-JP')
+      new Date(vote.voted_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
     ]);
 
     // CSV文字列を生成

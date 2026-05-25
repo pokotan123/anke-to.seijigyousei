@@ -50,12 +50,15 @@ function formatEndDate(endDate: Date | null): string {
   if (!endDate) {
     return '未定';
   }
+  // Railway 等のサーバーは UTC で動くため、timeZone を明示しないと UTC で表示されてしまう。
+  // 必ず JST (Asia/Tokyo) で表示する。
   return new Date(endDate).toLocaleDateString('ja-JP', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
   });
 }
 
