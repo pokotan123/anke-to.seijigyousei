@@ -21,6 +21,16 @@ function toDatetimeLocal(iso: string | null | undefined): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// `<input type="datetime-local">` のローカル時刻文字列（例: "2026-05-25T10:00"）を
+// ISO 8601 UTC（例: "2026-05-25T01:00:00.000Z"）に変換してから送信する。
+// そのまま送るとサーバー側で UTC として解釈され、表示時 JST 変換で 9 時間ズレる。
+// 既にISO 8601 (Z付き) の値も new Date → toISOString で同値に戻るので二重変換にならない。
+function toISO(local: string | null | undefined): string | null {
+  if (!local) return null;
+  const d = new Date(local);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 const DEFAULT_VOTE_MAIL_BODY = `{email} 様
 
 「{survey_title}」への投票が可能になりました。
@@ -140,12 +150,12 @@ export default function SurveyEditPage() {
         title: survey.title,
         description: survey.description,
         status: survey.status,
-        start_date: survey.start_date,
-        end_date: survey.end_date,
-        registration_start_date: survey.registration_start_date,
+        start_date: toISO(survey.start_date),
+        end_date: toISO(survey.end_date),
+        registration_start_date: toISO(survey.registration_start_date),
         require_registration: survey.require_registration,
         registration_message: survey.registration_message,
-        registration_deadline: survey.registration_deadline,
+        registration_deadline: toISO(survey.registration_deadline),
         registration_fields: (survey.registration_fields || []).filter((f) => f.name.trim() !== ''),
         vote_mail_body: survey.vote_mail_body,
         reminder_mail_body: survey.reminder_mail_body,

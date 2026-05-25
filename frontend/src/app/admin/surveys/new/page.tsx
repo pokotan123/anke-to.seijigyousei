@@ -36,6 +36,15 @@ export default function NewSurveyPage() {
     fetchSurveys();
   }, []);
 
+  // `<input type="datetime-local">` のローカル時刻文字列（例: "2026-05-25T10:00"）を
+  // ISO 8601 UTC（例: "2026-05-25T01:00:00.000Z"）に変換してから送信する。
+  // そのまま送るとサーバー側で UTC として解釈され、表示時 JST 変換で 9 時間ズレる。
+  const toISO = (local: string | null | undefined): string | null => {
+    if (!local) return null;
+    const d = new Date(local);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -48,10 +57,10 @@ export default function NewSurveyPage() {
         title,
         description,
         status,
-        start_date: startDate || null,
-        end_date: endDate || null,
-        registration_start_date: registrationStartDate || null,
-        registration_deadline: registrationDeadline || null,
+        start_date: toISO(startDate),
+        end_date: toISO(endDate),
+        registration_start_date: toISO(registrationStartDate),
+        registration_deadline: toISO(registrationDeadline),
         require_registration: false,
         registration_message: null,
         registration_fields: [],
