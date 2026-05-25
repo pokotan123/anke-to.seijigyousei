@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { surveyAPI, voterAPI } from '../../../lib/api';
 
-type PageState = 'loading' | 'form' | 'confirm' | 'success' | 'error';
+type PageState = 'loading' | 'form' | 'confirm' | 'success' | 'error' | 'closed';
 interface Option { id: number; option_text: string; order: number; }
 interface Question { id: number; question_text: string; question_type: 'single_choice' | 'multiple_choice' | 'text' | 'email'; is_required: boolean; order: number; options?: Option[]; }
 interface SurveyData { id: number; unique_token: string; title: string; description: string; registration_deadline: string | null; registration_message: string | null; questions: Question[]; }
@@ -22,7 +22,16 @@ export default function RegisterPage() {
 
   useEffect(() => {
     const fetchSurvey = async () => {
-      try { const data = await surveyAPI.getByToken(surveyToken); setSurvey(data); setPageState('form'); }
+      try {
+        const data = await surveyAPI.getByToken(surveyToken);
+        setSurvey(data);
+        // 登録締切が過ぎていれば「終了しました」表示に切替
+        if (data.registration_deadline && new Date(data.registration_deadline) < new Date()) {
+          setPageState('closed');
+        } else {
+          setPageState('form');
+        }
+      }
       catch (err: unknown) { const e = err as { response?: { data?: { error?: string } } }; setErrorMessage(e.response?.data?.error || 'アンケートが見つかりません'); setPageState('error'); }
     };
     if (surveyToken) fetchSurvey();
@@ -91,6 +100,24 @@ export default function RegisterPage() {
         </div>
         <h2 className="text-lg font-bold text-slate-800 mb-2">エラー</h2>
         <p className="text-sm text-slate-600 leading-relaxed">{errorMessage}</p>
+      </div>
+    </div>
+  );
+
+  if (pageState === 'closed') return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 max-w-md w-full p-8 text-center animate-fade-in">
+        <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-7 h-7 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </div>
+        <h2 className="text-lg font-bold text-slate-800 mb-2">登録受付は終了しました</h2>
+        {survey?.title && <p className="text-sm text-slate-600 mb-3">「{survey.title}」</p>}
+        {survey?.registration_deadline && (
+          <p className="text-xs text-slate-400 leading-relaxed">
+            締切: {new Date(survey.registration_deadline).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })}
+          </p>
+        )}
+        <p className="text-sm text-slate-500 leading-relaxed mt-4">ご参加ありがとうございました。</p>
       </div>
     </div>
   );

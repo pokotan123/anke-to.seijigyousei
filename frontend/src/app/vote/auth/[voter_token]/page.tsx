@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { voterAPI, voteAPI } from '@/lib/api';
 
-type PageState = 'loading' | 'consent' | 'voting' | 'confirm' | 'complete' | 'error';
+type PageState = 'loading' | 'consent' | 'voting' | 'confirm' | 'complete' | 'error' | 'closed';
 interface Option { id: number; option_text: string; order: number; }
 interface Question { id: number; question_text: string; question_type: 'single_choice' | 'multiple_choice' | 'text' | 'email'; is_required: boolean; order: number; options?: Option[]; }
 interface Survey { id: number; token: string; title: string; description: string; end_date: string; questions: Question[]; }
@@ -24,7 +24,16 @@ export default function AuthVotePage() {
 
   useEffect(() => {
     const verifyToken = async () => {
-      try { const response = await voterAPI.verify(voterToken); setData(response); setPageState('consent'); }
+      try {
+        const response = await voterAPI.verify(voterToken);
+        setData(response);
+        // 投票期限が過ぎていれば「終了しました」表示に切替
+        if (response.survey.end_date && new Date(response.survey.end_date) < new Date()) {
+          setPageState('closed');
+        } else {
+          setPageState('consent');
+        }
+      }
       catch (error: unknown) {
         const e = error as { response?: { status?: number; data?: { error?: string } } };
         const s = e.response?.status;
@@ -100,6 +109,24 @@ export default function AuthVotePage() {
         </div>
         <h2 className="text-lg font-bold text-slate-800 mb-1">投票が完了しました</h2>
         <p className="text-sm text-slate-500">ご投票ありがとうございました。</p>
+      </div>
+    </div>
+  );
+
+  if (pageState === 'closed') return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 max-w-md w-full p-8 text-center animate-fade-in">
+        <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-7 h-7 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </div>
+        <h2 className="text-lg font-bold text-slate-800 mb-2">投票期間は終了しました</h2>
+        {data?.survey?.title && <p className="text-sm text-slate-600 mb-3">「{data.survey.title}」</p>}
+        {data?.survey?.end_date && (
+          <p className="text-xs text-slate-400 leading-relaxed">
+            投票期限: {new Date(data.survey.end_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })}
+          </p>
+        )}
+        <p className="text-sm text-slate-500 leading-relaxed mt-4">ご投票ありがとうございました。</p>
       </div>
     </div>
   );
