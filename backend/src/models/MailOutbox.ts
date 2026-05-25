@@ -5,6 +5,7 @@ export type MailType =
   | 'registration_confirmation'
   | 'new_voting_notification'
   | 'vote_link'
+  | 'vote_link_auto'
   | 'reminder';
 
 export type MailStatus = 'pending' | 'sent' | 'failed' | 'dead';

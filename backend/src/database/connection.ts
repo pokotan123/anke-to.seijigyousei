@@ -36,7 +36,11 @@ if (!databaseUrl) {
 const pool = new Pool({
   connectionString: databaseUrl || 
     `postgresql://${process.env.DB_USER || 'survey_user'}:${process.env.DB_PASSWORD || 'survey_password'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'survey_db'}`,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  // DB_SSL=false で明示的にSSLを無効化できる（AWSのローカルPostgresコンテナ等、SSL非対応の接続先向け）
+  // 未設定なら従来どおり: 本番はSSL有効、それ以外は無効
+  ssl: process.env.DB_SSL === 'false'
+    ? false
+    : process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   // 接続プールの設定
   max: parseInt(process.env.DB_POOL_MAX || '20', 10), // 最大接続数（デフォルト: 20）
   min: parseInt(process.env.DB_POOL_MIN || '2', 10), // 最小接続数（デフォルト: 2）
@@ -74,6 +78,9 @@ export async function connectDatabase() {
           END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surveys' AND column_name='registration_start_date') THEN
             ALTER TABLE surveys ADD COLUMN registration_start_date TIMESTAMP;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surveys' AND column_name='auto_send_vote_link') THEN
+            ALTER TABLE surveys ADD COLUMN auto_send_vote_link BOOLEAN NOT NULL DEFAULT FALSE;
           END IF;
         END $$;
       `);

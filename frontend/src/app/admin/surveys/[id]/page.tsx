@@ -160,6 +160,7 @@ export default function SurveyEditPage() {
         vote_mail_body: survey.vote_mail_body,
         reminder_mail_body: survey.reminder_mail_body,
         registration_mail_body: survey.registration_mail_body,
+        auto_send_vote_link: !!survey.auto_send_vote_link,
       });
       alert('保存しました');
     } catch (err: any) {
@@ -632,6 +633,28 @@ export default function SurveyEditPage() {
           <p className="text-xs text-slate-400 mb-5 leading-relaxed">
             本文中で下記のタグを使用すると、送信時に実際の値に置換されます。
           </p>
+          {/* 登録アンケート専用: 登録時に投票リンクを自動送信するトグル */}
+          {isRegistrationSurvey && (
+            <div className="mb-5 p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!survey.auto_send_vote_link}
+                  onChange={(e) => setSurvey({ ...survey, auto_send_vote_link: e.target.checked })}
+                  className="mt-1"
+                />
+                <div>
+                  <span className="block text-sm font-medium text-slate-700">
+                    登録完了と同時に、紐付いた投票アンケートの投票リンクを自動送信する
+                  </span>
+                  <span className="block text-xs text-slate-500 mt-1">
+                    OFF（デフォルト）: 「投票リンク一括送信」ボタンで管理者が手動送付。
+                    ON: 登録完了メールに加えて、投票リンクメールも自動で2通目を送信します。
+                  </span>
+                </div>
+              </label>
+            </div>
+          )}
           <div className="space-y-5">
             {!isRegistrationSurvey ? (
               <>

@@ -187,6 +187,28 @@ router.post('/register', registerRateLimit, async (req, res): Promise<void> => {
         },
       });
 
+      // auto_send_vote_link=true の場合、紐付いた投票アンケートごとに投票リンクメールも enqueue
+      // （登録完了メールとは独立して2通目以降が届く）
+      if (survey.auto_send_vote_link) {
+        for (const item of issued) {
+          const votingSurvey = await SurveyModel.findById(item.voting_survey_id);
+          if (!votingSurvey) continue;
+          await MailOutbox.enqueue(client, {
+            idempotency_key: `vote_link:${item.voting_survey_id}:${emailHash}`,
+            mail_type: 'vote_link_auto',
+            to_email: email,
+            payload: {
+              voting_survey_id: item.voting_survey_id,
+              voter_token: item.voter_token,
+              survey_title: votingSurvey.title,
+              survey_description: votingSurvey.description || null,
+              end_date: votingSurvey.end_date,
+              custom_body: votingSurvey.vote_mail_body || null,
+            },
+          });
+        }
+      }
+
       await client.query('COMMIT');
     } catch (txError) {
       await client.query('ROLLBACK');
@@ -200,6 +222,18 @@ router.post('/register', registerRateLimit, async (req, res): Promise<void> => {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
       console.error(`Registration confirmation email failed for ${email}:`, errMsg);
     });
+
+    // auto_send_vote_link=true なら投票リンクメールも fire-and-forget で送信
+    if (survey.auto_send_vote_link) {
+      const emailHashForAuto = MailOutbox.hashEmail(email);
+      for (const item of issued) {
+        MailService.processOutboxVoteLinkAuto(email, emailHashForAuto, item.voting_survey_id)
+          .catch((err) => {
+            const errMsg = err instanceof Error ? err.message : 'Unknown error';
+            console.error(`Auto vote link email failed for ${email} (survey ${item.voting_survey_id}):`, errMsg);
+          });
+      }
+    }
 
     res.status(201).json({
       message: '登録が完了しました。投票リンクは後日メールでお届けします。',

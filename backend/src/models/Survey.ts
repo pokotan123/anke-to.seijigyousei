@@ -17,6 +17,7 @@ export interface Survey {
   vote_mail_body: string | null;
   reminder_mail_body: string | null;
   registration_mail_body: string | null;
+  auto_send_vote_link: boolean;
   created_at: Date;
   updated_at: Date;
   created_by: number;
@@ -37,6 +38,7 @@ export interface CreateSurveyInput {
   vote_mail_body?: string;
   reminder_mail_body?: string;
   registration_mail_body?: string;
+  auto_send_vote_link?: boolean;
 }
 
 export interface UpdateSurveyInput {
@@ -53,14 +55,15 @@ export interface UpdateSurveyInput {
   vote_mail_body?: string;
   reminder_mail_body?: string;
   registration_mail_body?: string;
+  auto_send_vote_link?: boolean;
 }
 
 export class SurveyModel {
   static async create(input: CreateSurveyInput): Promise<Survey> {
     const uniqueToken = this.generateUniqueToken();
     const query = `
-      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by, require_registration, registration_message, registration_start_date, registration_deadline, registration_fields, vote_mail_body, reminder_mail_body, registration_mail_body)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      INSERT INTO surveys (unique_token, title, description, status, start_date, end_date, created_by, require_registration, registration_message, registration_start_date, registration_deadline, registration_fields, vote_mail_body, reminder_mail_body, registration_mail_body, auto_send_vote_link)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `;
     const values = [
@@ -79,6 +82,7 @@ export class SurveyModel {
       input.vote_mail_body || null,
       input.reminder_mail_body || null,
       input.registration_mail_body || null,
+      input.auto_send_vote_link === true,
     ];
 
     const result = await pool.query(query, values);
@@ -168,6 +172,10 @@ export class SurveyModel {
       fields.push(`registration_mail_body = $${paramCount++}`);
       values.push(input.registration_mail_body);
     }
+    if (input.auto_send_vote_link !== undefined) {
+      fields.push(`auto_send_vote_link = $${paramCount++}`);
+      values.push(input.auto_send_vote_link);
+    }
 
     if (fields.length === 0) {
       return this.findById(id);
@@ -215,13 +223,13 @@ export class SurveyModel {
           start_date, end_date,
           require_registration, registration_message,
           registration_start_date, registration_deadline, registration_fields,
-          vote_mail_body, reminder_mail_body, registration_mail_body, created_by
+          vote_mail_body, reminder_mail_body, registration_mail_body, auto_send_vote_link, created_by
         ) VALUES (
           $1, $2, $3, 'draft',
           NULL, NULL,
           $4, $5,
           NULL, NULL, $6,
-          $7, $8, $9, $10
+          $7, $8, $9, $10, $11
         ) RETURNING *`,
         [
           newToken,
@@ -233,6 +241,7 @@ export class SurveyModel {
           source.vote_mail_body,
           source.reminder_mail_body,
           source.registration_mail_body,
+          source.auto_send_vote_link === true,
           createdBy,
         ]
       );

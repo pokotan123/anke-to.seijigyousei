@@ -16,6 +16,7 @@ export interface Survey {
   vote_mail_body?: string | null;
   reminder_mail_body?: string | null;
   registration_mail_body?: string | null;
+  auto_send_vote_link?: boolean;
   questions: Question[];
 }
 

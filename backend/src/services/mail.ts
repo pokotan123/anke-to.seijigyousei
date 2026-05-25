@@ -332,6 +332,47 @@ export class MailService {
   }
 
   /**
+   * 登録時 自動送信: enqueue 済みの vote_link_auto 行を1件取り出して投票リンクメール送信
+   * （auto_send_vote_link=true の登録アンケートで使用）
+   */
+  static async processOutboxVoteLinkAuto(
+    email: string,
+    emailHash: string,
+    votingSurveyId: number
+  ): Promise<void> {
+    const idemKey = `vote_link:${votingSurveyId}:${emailHash}`;
+    const res = await pool.query(
+      `SELECT * FROM mail_outbox WHERE idempotency_key = $1 AND status IN ('pending','failed') LIMIT 1`,
+      [idemKey]
+    );
+    if (res.rows.length === 0) return;
+    const row = res.rows[0];
+    const payload = row.payload as {
+      voting_survey_id: number;
+      voter_token: string;
+      survey_title: string;
+      survey_description: string | null;
+      end_date: string | null;
+      custom_body: string | null;
+    };
+
+    const result = await MailService.sendVoteLink({
+      email,
+      voterToken: payload.voter_token,
+      surveyTitle: payload.survey_title,
+      surveyDescription: payload.survey_description,
+      endDate: payload.end_date ? new Date(payload.end_date) : null,
+      customBody: payload.custom_body,
+    });
+
+    if (result.success) {
+      await MailOutbox.markSent(row.id);
+    } else {
+      await MailOutbox.markFailed(row.id, result.error || 'send failed');
+    }
+  }
+
+  /**
    * 1対N 後付け通知: enqueue 済みの new_voting_notification 行を順次送信
    */
   static async processOutboxNewVotingNotifications(
