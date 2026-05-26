@@ -52,7 +52,7 @@ const DEFAULT_REGISTRATION_MAIL_BODY = `{email} 様
 
 「{survey_title}」への登録が完了しました。
 
-紐づけ先の投票アンケート「{voting_survey_title}」の投票リンクは、後日メールでお届けします。しばらくお待ちください。
+紐づけ先の投票アンケート「{voting_survey_title}」の投票リンクは、後ほどメールでお届けします。しばらくお待ちください。
 
 ※このメールに心当たりがない場合は破棄してください。`;
 

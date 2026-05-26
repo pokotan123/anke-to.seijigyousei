@@ -236,7 +236,7 @@ router.post('/register', registerRateLimit, async (req, res): Promise<void> => {
     }
 
     res.status(201).json({
-      message: '登録が完了しました。投票リンクは後日メールでお届けします。',
+      message: '登録が完了しました。投票リンクは後ほどメールでお届けします。',
       voting_count: issued.length,
     });
   } catch (error: unknown) {

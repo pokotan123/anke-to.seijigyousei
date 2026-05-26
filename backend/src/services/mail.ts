@@ -126,7 +126,7 @@ function buildRegistrationConfirmationHtml(params: SendRegistrationConfirmationP
           <td style="padding: 8px;">${escapeHtml(params.votingSurveyTitle)}</td>
         </tr>
       </table>
-      <p>投票リンクは後日メールでお届けします。しばらくお待ちください。</p>
+      <p>投票リンクは後ほどメールでお届けします。しばらくお待ちください。</p>
       <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
       <p style="color: #94a3b8; font-size: 12px;">※このメールは自動送信です。心当たりがない場合は破棄してください。</p>
     </div>

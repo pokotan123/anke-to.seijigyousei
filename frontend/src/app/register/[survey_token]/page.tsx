@@ -130,7 +130,7 @@ export default function RegisterPage() {
         </div>
         <h2 className="text-lg font-bold text-slate-800 mb-2">登録が完了しました</h2>
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-700">
-          <p className="leading-relaxed">投票リンクは後日メールでお届けします。<br />メールが届くまでしばらくお待ちください。</p>
+          <p className="leading-relaxed">投票リンクは後ほどメールでお届けします。<br />メールが届くまでしばらくお待ちください。</p>
         </div>
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700 mt-3">
           <p className="leading-relaxed">自動返信メールが届かない場合は、迷惑メールフォルダをご確認いただくか、受信設定で当システムからのメールを許可してください。</p>
