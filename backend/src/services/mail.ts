@@ -2,6 +2,7 @@ import { Resend } from 'resend';
 import { pool } from '../database/connection';
 import { MailOutbox } from '../models/MailOutbox';
 import { SurveyModel, type Survey } from '../models/Survey';
+import { VoterModel } from '../models/Voter';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -367,6 +368,11 @@ export class MailService {
 
     if (result.success) {
       await MailOutbox.markSent(row.id);
+      // voters テーブルも 'sent' に更新（管理画面の「未送信」表示を解消）
+      const voter = await VoterModel.findByToken(payload.voter_token);
+      if (voter) {
+        await VoterModel.markAsSent(voter.id);
+      }
     } else {
       await MailOutbox.markFailed(row.id, result.error || 'send failed');
     }
