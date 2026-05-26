@@ -121,7 +121,7 @@ router.get('/:id', authenticateToken, auditLogMiddleware, async (req, res) => {
 // 管理API: アンケート作成
 router.post('/', authenticateToken, auditLogMiddleware, requireAdmin, async (req: AuthRequest, res) => {
   try {
-    const { title, description, status, start_date, end_date, registration_start_date, vote_mail_body, reminder_mail_body, registration_mail_body, require_registration } = req.body;
+    const { title, description, status, start_date, end_date, registration_start_date, vote_mail_body, reminder_mail_body, registration_mail_body, require_registration, auto_send_vote_link } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
@@ -143,6 +143,7 @@ router.post('/', authenticateToken, auditLogMiddleware, requireAdmin, async (req
       vote_mail_body: vote_mail_body || null,
       reminder_mail_body: reminder_mail_body || null,
       registration_mail_body: registration_mail_body || null,
+      auto_send_vote_link: auto_send_vote_link === true,
     });
 
     res.status(201).json(survey);
@@ -156,7 +157,7 @@ router.post('/', authenticateToken, auditLogMiddleware, requireAdmin, async (req
 router.put('/:id', authenticateToken, auditLogMiddleware, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { title, description, status, start_date, end_date, registration_start_date, registration_deadline, require_registration, registration_message, registration_fields, vote_mail_body, reminder_mail_body, registration_mail_body } = req.body;
+    const { title, description, status, start_date, end_date, registration_start_date, registration_deadline, require_registration, registration_message, registration_fields, vote_mail_body, reminder_mail_body, registration_mail_body, auto_send_vote_link } = req.body;
 
     const survey = await SurveyModel.update(id, {
       title,
@@ -172,6 +173,7 @@ router.put('/:id', authenticateToken, auditLogMiddleware, requireAdmin, async (r
       vote_mail_body,
       reminder_mail_body,
       registration_mail_body,
+      auto_send_vote_link: 'auto_send_vote_link' in req.body ? !!auto_send_vote_link : undefined,
     });
 
     if (!survey) {
