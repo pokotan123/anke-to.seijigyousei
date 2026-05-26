@@ -85,6 +85,28 @@ export async function connectDatabase() {
         END $$;
       `);
 
+      // Self-healing: auto_send_vote_link 経路で過去に送信成功したが
+      // voters.status が registered のままの行を 'sent' に更新（commit 088b009 修正前のデータ復旧）
+      // mail_outbox.mail_type='vote_link_auto' AND status='sent' から voter_token を引く
+      // 冪等性: 既に v.status='sent' の voter は WHERE で除外、複数回実行しても安全
+      try {
+        const healRes = await client.query(`
+          UPDATE voters v
+          SET status = 'sent',
+              link_sent_at = COALESCE(v.link_sent_at, mo.sent_at, NOW())
+          FROM mail_outbox mo
+          WHERE mo.mail_type = 'vote_link_auto'
+            AND mo.status = 'sent'
+            AND mo.payload->>'voter_token' = v.voter_token
+            AND v.status = 'registered'
+        `);
+        if (healRes.rowCount && healRes.rowCount > 0) {
+          console.log(`🔧 Self-healed ${healRes.rowCount} voters from registered → sent (auto_send_vote_link backfill)`);
+        }
+      } catch (healError) {
+        console.error('⚠️ Voters self-heal warning:', healError);
+      }
+
       // 監査ログテーブル（個人情報取扱覚書 第6条3項対応 / 設計書 v2.3 準拠）
       await client.query(`
         CREATE TABLE IF NOT EXISTS audit_logs (
