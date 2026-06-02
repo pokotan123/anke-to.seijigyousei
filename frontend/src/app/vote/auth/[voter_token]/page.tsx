@@ -137,7 +137,7 @@ export default function AuthVotePage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 max-w-lg w-full p-7 animate-fade-in">
         <h1 className="text-xl font-bold text-slate-800 mb-2">{data.survey.title}</h1>
-        <p className="text-sm text-slate-500 leading-relaxed mb-4">{data.survey.description}</p>
+        <p className="text-sm text-slate-500 leading-relaxed mb-4 whitespace-pre-line">{data.survey.description}</p>
         <p className="text-xs text-slate-400 mb-1">{data.voter.email}</p>
         {data.survey.end_date && (
           <p className="text-xs text-slate-400 mb-5">投票期限: {new Date(data.survey.end_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>

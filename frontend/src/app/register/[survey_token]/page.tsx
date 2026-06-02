@@ -177,7 +177,7 @@ export default function RegisterPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-7 sm:p-8">
           <div className="text-center mb-8">
             <h1 className="text-xl font-bold text-slate-800">{survey.title}</h1>
-            {survey.description && <p className="text-sm text-slate-500 mt-2 leading-relaxed">{survey.description}</p>}
+            {survey.description && <p className="text-sm text-slate-500 mt-2 leading-relaxed whitespace-pre-line text-left">{survey.description}</p>}
             {survey.registration_deadline && (
               <p className="text-xs text-slate-400 mt-2">登録締切: {new Date(survey.registration_deadline).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
             )}

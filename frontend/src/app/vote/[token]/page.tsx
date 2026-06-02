@@ -166,7 +166,7 @@ export default function VotePage() {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-7 sm:p-8">
             <div className="text-center mb-8">
               <h1 className="text-xl font-bold text-slate-800">{survey?.title}</h1>
-              {survey?.description && <p className="text-sm text-slate-500 mt-2 leading-relaxed">{survey.description}</p>}
+              {survey?.description && <p className="text-sm text-slate-500 mt-2 leading-relaxed whitespace-pre-line text-left">{survey.description}</p>}
               <div className="w-12 h-0.5 bg-primary-400 rounded-full mx-auto mt-4" />
             </div>
 
