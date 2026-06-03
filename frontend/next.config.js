@@ -14,7 +14,7 @@ const nextConfig = {
           },
         ],
         destination: 'https://seisaku-youth.com/:path*',
-        permanent: false,
+        permanent: true,
       },
     ];
   },
