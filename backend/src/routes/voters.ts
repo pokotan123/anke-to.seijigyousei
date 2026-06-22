@@ -14,21 +14,26 @@ import { pool } from '../database/connection';
 const router = express.Router();
 
 // レート制限: メール登録用（1IPあたり15分で5回）
+// 2026-06-22 本番イベント中の緊急対応: 会場の共有IP（NAT）で全来場者がブロックされたため
+// IP単位のレート制限を無効化（skip: () => true）。イベント後に再有効化を検討すること。
 const registerRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   message: { error: '登録回数の上限に達しました。しばらくしてから再度お試しください。' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => true,
 });
 
 // レート制限: トークン検証用（1IPあたり15分で30回）
+// 2026-06-22 同上の理由でIP単位制限を無効化
 const verifyRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
   message: { error: 'リクエスト回数の上限に達しました。しばらくしてから再度お試しください。' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => true,
 });
 
 // Zodスキーマ - 登録アンケート回答用

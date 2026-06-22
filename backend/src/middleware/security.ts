@@ -37,12 +37,15 @@ export function sanitizeInput(input: any): any {
 }
 
 // レート制限（投票用）
+// 2026-06-22 本番イベント中の緊急対応: 会場の共有IP（NAT）で全来場者がブロックされたため
+// IP単位のレート制限を無効化（skip: () => true）。イベント後に再有効化を検討すること。
 export const voteRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
   max: 50, // 50リクエスト
   message: 'Too many votes from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => true,
 });
 
 // レート制限（API用）
